@@ -149,10 +149,7 @@ export default function StudentPage() {
 
             <div>
               <p className='text-sm text-slate-500'>
-                โปรเจก
-              </p>
-              <p className='font-medium'>
-                {student.project}
+                
               </p>
             </div>
           </div>
