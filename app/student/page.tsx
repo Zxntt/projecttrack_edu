@@ -19,66 +19,98 @@ export default function StudentPage() {
   const [progress, setProgress] = useState('25')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+
+  // ดึงข้อมูลนักเรียน
+  const fetchStudentData = async (studentCode: string) => {
+    try {
+      const res = await fetch(`/api/student?student_code=${studentCode}`)
+      
+      if (!res.ok) {
+        throw new Error(`HTTP Error: ${res.status}`)
+      }
+
+      const text = await res.text()
+      // ป้องกัน Error Unexpected end of JSON input
+      const data = text ? JSON.parse(text) : null
+
+      if (data) {
+        // กำหนดค่าเริ่มต้น fallback หากเป็นนักเรียนที่เพิ่งสมัครใหม่และยังไม่มีกลุ่ม
+        setStudent({
+          name: data.name || 'นักศึกษารายใหม่',
+          student_code: data.student_code || studentCode,
+          group_name: data.group_name || 'ยังไม่มีกลุ่ม',
+          project: data.project || data.project_name || 'ยังไม่ได้ระบุโครงงาน',
+          progress: Number(data.progress) || 0,
+          status: data.status || 'รอการส่งงาน',
+        })
+      }
+    } catch (error) {
+      console.error('Fetch student error:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // จำลองผู้ใช้ที่ล็อกอิน
-    const user = JSON.parse(
-      localStorage.getItem('user') || '{}'
-    )
+    const userStr = localStorage.getItem('user')
+    if (!userStr) {
+      router.push('/login')
+      return
+    }
 
+    const user = JSON.parse(userStr)
+
+    // เช็กสิทธิ์การเข้าถึง
     if (!user.student_code || user.role !== 'student') {
-  router.push('/login')
-  return
-}
+      router.push('/login')
+      return
+    }
 
-    fetch(
-      `/api/student?student_code=${user.student_code}`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        setStudent(data)
-        setLoading(false)
-      })
+    fetchStudentData(user.student_code)
   }, [router])
 
-  const handleSubmit = async (
-    e: React.FormEvent
-  ) => {
+  // ฟังก์ชันส่งรายงานความคืบหน้า
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!student) return
 
-    const res = await fetch(
-      '/api/update-progress',
-      {
+    setSubmitting(true)
+    try {
+      const res = await fetch('/api/update-progress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          student_code: student.student_code,
           groupName: student.group_name,
           progress: Number(progress),
+          description: description,
         }),
+      })
+
+      const data = await res.json()
+
+      if (data.success || res.ok) {
+        alert('ส่งความคืบหน้าเรียบร้อยแล้ว!')
+        
+        // โหลดข้อมูลล่าสุดใหม่
+        const user = JSON.parse(localStorage.getItem('user') || '{}')
+        if (user.student_code) {
+          await fetchStudentData(user.student_code)
+        }
+        
+        setDescription('')
+        setProgress('25')
+      } else {
+        alert(data.message || 'ไม่สามารถส่งความคืบหน้าได้')
       }
-    )
-
-    const data = await res.json()
-
-    if (data.success) {
-      alert('ส่งความคืบหน้าเรียบร้อยแล้ว')
-
-      // โหลดข้อมูลใหม่
-      const user = JSON.parse(
-        localStorage.getItem('user') || '{}'
-      )
-
-      const updated = await fetch(
-        `/api/student?student_code=${user.student_code}`
-      ).then((r) => r.json())
-
-      setStudent(updated)
-      setDescription('')
-      setProgress('25')
+    } catch (error) {
+      console.error(error)
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -89,8 +121,8 @@ export default function StudentPage() {
 
   if (loading) {
     return (
-      <main className='flex min-h-screen items-center justify-center bg-slate-50'>
-        <p>กำลังโหลดข้อมูล...</p>
+      <main className="flex min-h-screen items-center justify-center bg-[#05070d] text-cyan-400 font-mono">
+        <p className="animate-pulse">LOADING DATA · กำลังโหลดข้อมูลนักศึกษา...</p>
       </main>
     )
   }
@@ -98,93 +130,89 @@ export default function StudentPage() {
   if (!student) return null
 
   return (
-    <main className='min-h-screen bg-slate-50 p-6'>
-      <div className='mx-auto max-w-3xl space-y-6'>
+    <main
+      className="min-h-screen bg-[#05070d] p-6 text-slate-200"
+      style={{
+        backgroundImage:
+          'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.15) 1px, transparent 0)',
+        backgroundSize: '28px 28px',
+      }}
+    >
+      <div className="mx-auto max-w-3xl space-y-6">
         {/* Header */}
-        <div className='flex items-center justify-between'>
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className='text-3xl font-bold text-slate-900'>
-              Student Dashboard
+            <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+              👨‍🎓 Student Dashboard
             </h1>
-            <p className='text-slate-600'>
-              หน้าส่งความคืบหน้าโครงงาน
+            <p className="mt-1 text-sm text-slate-400">
+              ระบบติดตามและส่งรายงานความคืบหน้าโครงงาน
             </p>
           </div>
 
           <button
             onClick={handleLogout}
-            className='rounded-xl bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700'
+            className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 font-medium text-rose-300 transition hover:bg-rose-500/20"
           >
-            Logout
+            🚪 ออกจากระบบ
           </button>
         </div>
 
         {/* Student Info */}
-        <div className='rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200'>
-          <h2 className='mb-4 text-xl font-semibold text-slate-900'>
-            ข้อมูลนักศึกษา
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl">
+          <h2 className="mb-4 text-lg font-semibold text-cyan-300 font-mono border-b border-slate-800 pb-2">
+            📌 ข้อมูลนักศึกษา
           </h2>
 
-          <div className='grid grid-cols-1 gap-4 sm:grid-cols-2'>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <p className='text-sm text-slate-500'>ชื่อ</p>
-              <p className='font-medium'>{student.name}</p>
+              <p className="text-xs font-mono text-slate-400">ชื่อ - นามสกุล</p>
+              <p className="mt-1 font-medium text-slate-100">{student.name}</p>
             </div>
 
             <div>
-              <p className='text-sm text-slate-500'>
-                รหัสนักศึกษา
-              </p>
-              <p className='font-medium'>
+              <p className="text-xs font-mono text-slate-400">รหัสนักศึกษา</p>
+              <p className="mt-1 font-mono font-medium text-cyan-400">
                 {student.student_code}
               </p>
             </div>
 
             <div>
-              <p className='text-sm text-slate-500'>กลุ่ม</p>
-              <p className='font-medium'>
-                {student.group_name}
-              </p>
+              <p className="text-xs font-mono text-slate-400">กลุ่มโครงงาน</p>
+              <p className="mt-1 font-medium text-slate-300">{student.group_name}</p>
             </div>
 
             <div>
-              <p className='text-sm text-slate-500'>
-                
-              </p>
+              <p className="text-xs font-mono text-slate-400">ชื่อโครงงาน</p>
+              <p className="mt-1 font-medium text-slate-300">{student.project}</p>
             </div>
           </div>
         </div>
 
         {/* Current Progress */}
-        <div className='rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200'>
-          <h2 className='mb-4 text-xl font-semibold text-slate-900'>
-            ความคืบหน้าปัจจุบัน
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl">
+          <h2 className="mb-4 text-lg font-semibold text-cyan-300 font-mono border-b border-slate-800 pb-2">
+            📊 ความคืบหน้าปัจจุบัน
           </h2>
 
-          <div className='space-y-3'>
+          <div className="space-y-4">
             <div>
-              <div className='mb-2 flex justify-between text-sm'>
-                <span>ความคืบหน้า</span>
-                <span className='font-semibold'>
-                  {student.progress}%
-                </span>
+              <div className="mb-2 flex justify-between text-sm font-mono">
+                <span className="text-slate-400">เปอร์เซ็นต์งานเสร็จสิ้น</span>
+                <span className="font-bold text-cyan-300">{student.progress}%</span>
               </div>
 
-              <div className='h-3 overflow-hidden rounded-full bg-slate-200'>
+              <div className="h-3 overflow-hidden rounded-full bg-slate-950 border border-slate-800">
                 <div
-                  className='h-full rounded-full bg-blue-600'
-                  style={{
-                    width: `${student.progress}%`,
-                  }}
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-sky-400 transition-all duration-500 shadow-[0_0_12px_rgba(34,211,238,0.5)]"
+                  style={{ width: `${student.progress}%` }}
                 />
               </div>
             </div>
 
-            <div className='pt-2'>
-              <span className='text-sm text-slate-500'>
-                สถานะ:
-              </span>{' '}
-              <span className='rounded-full bg-yellow-100 px-3 py-1 text-sm font-semibold text-yellow-700'>
+            <div className="flex items-center gap-2 pt-1">
+              <span className="text-xs font-mono text-slate-400">สถานะล่าสุด:</span>
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-0.5 text-xs font-semibold text-amber-300">
                 {student.status}
               </span>
             </div>
@@ -194,27 +222,27 @@ export default function StudentPage() {
         {/* Submit Form */}
         <form
           onSubmit={handleSubmit}
-          className='space-y-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200'
+          className="space-y-5 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl"
         >
-          <h2 className='text-xl font-semibold text-slate-900'>
-            ส่งความคืบหน้าใหม่
+          <h2 className="text-lg font-semibold text-cyan-300 font-mono border-b border-slate-800 pb-2">
+            🚀 ส่งความคืบหน้าใหม่
           </h2>
 
           <div>
-            <label className='mb-2 block text-sm font-medium text-slate-700'>
-              เปอร์เซ็นต์ความคืบหน้า
+            <label className="mb-2 block text-xs font-mono text-slate-400">
+              เลือกเปอร์เซ็นต์ความคืบหน้า
             </label>
 
-            <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {['25', '50', '75', '100'].map((p) => (
                 <button
                   key={p}
-                  type='button'
+                  type="button"
                   onClick={() => setProgress(p)}
-                  className={`rounded-xl border px-4 py-3 font-semibold transition ${
+                  className={`rounded-xl border py-3 font-mono font-semibold transition ${
                     progress === p
-                      ? 'border-blue-600 bg-blue-600 text-white'
-                      : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400'
+                      ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_15px_-3px_rgba(34,211,238,0.4)]'
+                      : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                   }`}
                 >
                   {p}%
@@ -224,27 +252,26 @@ export default function StudentPage() {
           </div>
 
           <div>
-            <label className='mb-2 block text-sm font-medium text-slate-700'>
+            <label className="mb-2 block text-xs font-mono text-slate-400">
               รายละเอียดงานที่ทำเสร็จ
             </label>
 
             <textarea
               value={description}
-              onChange={(e) =>
-                setDescription(e.target.value)
-              }
-              rows={5}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={4}
               required
-              placeholder='อธิบายสิ่งที่ทำเสร็จแล้ว...'
-              className='w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-blue-500 focus:outline-none'
+              placeholder="อธิบายหัวข้อ หรืองานที่ทำเสร็จแล้วในรอบนี้..."
+              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
             />
           </div>
 
           <button
-            type='submit'
-            className='w-full rounded-xl bg-blue-600 px-5 py-3 font-medium text-white shadow hover:bg-blue-700'
+            type="submit"
+            disabled={submitting}
+            className="w-full rounded-xl border border-cyan-400/30 bg-cyan-400/10 py-3.5 font-semibold text-cyan-300 shadow-[0_0_20px_-6px_rgba(34,211,238,0.5)] transition hover:bg-cyan-400/20 disabled:opacity-50"
           >
-            ส่งความคืบหน้า
+            {submitting ? 'กำลังส่งข้อมูล...' : '✨ ยืนยันการส่งความคืบหน้า'}
           </button>
         </form>
       </div>

@@ -180,7 +180,7 @@ export default function NewStudentPage() {
               📋 จัดการกลุ่มนักเรียน
             </h1>
             <p className="mt-1 text-sm text-slate-400">
-              เพิ่ม แก้ไข และลบกลุ่มนักเรียนพร้อมรายชื่อผู้จัดทำ (MySQL DB)
+              ( เพิ่ม แก้ไข และลบกลุ่มนักเรียนพร้อมรายชื่อผู้จัดทำ ) 
             </p>
           </div>
 

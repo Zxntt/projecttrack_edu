@@ -2,17 +2,17 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
 
-  const [email, setEmail] = useState('')
+  // เปลี่ยนชื่อ state ให้ชัดเจนขึ้นว่ารับได้ทั้ง email หรือ student_code
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (
-    e: React.FormEvent
-  ) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
@@ -22,26 +22,28 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        // ส่งค่า identifier ไปเป็น email หรือ student_code
+        body: JSON.stringify({
+          email: identifier,
+          student_code: identifier,
+          password,
+        }),
       })
 
       const data = await res.json()
 
-      if (data.success) {
-        // เก็บข้อมูลผู้ใช้
-        localStorage.setItem(
-          'user',
-          JSON.stringify(data.user)
-        )
+      if (data.success && data.user) {
+        // บันทึกข้อมูลผู้ใช้ลง localStorage
+        localStorage.setItem('user', JSON.stringify(data.user))
 
-        // แยกหน้า
+        // แยกเส้นทางตามบทบาท (Role)
         if (data.user.role === 'teacher') {
           router.push('/')
         } else {
           router.push('/student')
         }
       } else {
-        alert(data.message)
+        alert(data.message || 'อีเมล / รหัสนักศึกษา หรือรหัสผ่านไม่ถูกต้อง')
       }
     } catch (error) {
       console.error(error)
@@ -52,66 +54,77 @@ export default function LoginPage() {
   }
 
   return (
-    <main className='flex min-h-screen items-center justify-center bg-slate-50 p-6'>
-      <div className='w-full max-w-md rounded-2xl bg-white p-8 shadow-lg ring-1 ring-slate-200'>
-        <div className='mb-6 text-center'>
-          <h1 className='text-3xl font-bold text-slate-900'>
-            ProjectTrack EDU
+    <main
+      className="flex min-h-screen items-center justify-center bg-[#05070d] p-6 text-slate-200"
+      style={{
+        backgroundImage:
+          'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.15) 1px, transparent 0)',
+        backgroundSize: '28px 28px',
+      }}
+    >
+      <div className="w-full max-w-md rounded-2xl border border-slate-800/80 bg-slate-900/50 p-8 shadow-2xl backdrop-blur-xl">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+            🚀 ProjectTrack EDU
           </h1>
-          <p className='mt-2 text-slate-600'>
-            เข้าสู่ระบบติดตามโครงงาน
+          <p className="mt-2 text-sm text-slate-400">
+            เข้าสู่ระบบติดตามความก้าวหน้าโครงงาน
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className='space-y-5'>
+        {/* Form */}
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
-            <label className='mb-2 block text-sm font-medium text-slate-700'>
-              อีเมล
+            <label className="mb-2 block text-xs font-mono text-slate-400">
+              อีเมล หรือ รหัสนักศึกษา
             </label>
-
             <input
-              type='email'
-              value={email}
-              onChange={(e) =>
-                setEmail(e.target.value)
-              }
+              type="text" // เปลี่ยนเป็น text เพื่อรับได้ทั้งข้อความและตัวเลขรหัสนักศึกษา
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
               required
-              placeholder='example@cmtc.ac.th'
-              className='w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-blue-500 focus:outline-none'
+              placeholder="เช่น 68319010015 หรือ email@cmtc.ac.th"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className='mb-2 block text-sm font-medium text-slate-700'>
+            <label className="mb-2 block text-xs font-mono text-slate-400">
               รหัสผ่าน
             </label>
-
             <input
-              type='password'
+              type="password"
               value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
+              onChange={(e) => setPassword(e.target.value)}
               required
-              placeholder='••••••••'
-              className='w-full rounded-xl border border-slate-300 px-4 py-3 focus:border-blue-500 focus:outline-none'
+              placeholder="••••••••"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
             />
           </div>
 
           <button
-            type='submit'
+            type="submit"
             disabled={loading}
-            className='w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white shadow hover:bg-blue-700 disabled:opacity-50'
+            className="w-full rounded-xl border border-cyan-400/30 bg-cyan-400/10 py-3 font-semibold text-cyan-300 shadow-[0_0_20px_-6px_rgba(34,211,238,0.5)] transition hover:bg-cyan-400/20 disabled:opacity-50"
           >
             {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
           </button>
         </form>
 
-        <div className='mt-6 rounded-xl bg-slate-50 p-4 text-sm text-slate-600'>
-          <p className='font-semibold'>บัญชีทดสอบ</p>
+        {/* ปุ่มไปหน้าสมัครสมาชิก */}
+        <div className="mt-6 text-center text-sm text-slate-400">
+          ยังไม่มีบัญชีผู้ใช้งาน?{' '}
+          <Link href="/register" className="font-semibold text-cyan-400 hover:underline">
+            สมัครสมาชิกที่นี่
+          </Link>
+        </div>
 
-          <div className='mt-2 space-y-1'>
-            <p>นักเรียน: 66001@cmtc.ac.th / 123456</p>
+        {/* บัญชีทดสอบ */}
+        <div className="mt-6 rounded-xl border border-slate-800/80 bg-slate-950/40 p-4 text-xs font-mono text-slate-400">
+          <p className="font-semibold text-slate-300">💡 บัญชีทดสอบระบบ:</p>
+          <div className="mt-2 space-y-1 text-slate-400">
+            <p>นักเรียน: 68319010015 / 123456</p>
             <p>อาจารย์: teacher@cmtc.ac.th / admin123</p>
           </div>
         </div>
