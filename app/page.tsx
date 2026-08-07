@@ -3,12 +3,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+type Member = {
+  studentId: string
+  fullname: string
+}
+
 type Group = {
   id: number
   name: string
   project: string
   progress: number
   status: string
+  class_name?: string
+  members?: Member[]
 }
 
 type HistoryPoint = {
@@ -54,7 +61,7 @@ export default function Home() {
 
       const avg =
         data.length > 0
-          ? data.reduce((sum, g) => sum + g.progress, 0) / data.length
+          ? data.reduce((sum, g) => sum + Number(g.progress || 0), 0) / data.length
           : 0
 
       const point: HistoryPoint = {
@@ -84,10 +91,10 @@ export default function Home() {
 
   const average =
     groups.length > 0
-      ? groups.reduce((sum, g) => sum + g.progress, 0) / groups.length
+      ? groups.reduce((sum, g) => sum + Number(g.progress || 0), 0) / groups.length
       : 0
 
-  const submitted = groups.filter((g) => g.progress > 0).length
+  const submitted = groups.filter((g) => Number(g.progress) > 0).length
   const pending = groups.filter((g) => g.status === 'รอตรวจ').length
 
   if (loading) {
@@ -166,7 +173,6 @@ export default function Home() {
         </div>
 
         {/* Trend chart */}
-        
         <AverageTrendChart history={history} average={average} />
 
         {/* Stats */}
@@ -221,7 +227,10 @@ export default function Home() {
               <thead className="bg-slate-950/60">
                 <tr>
                   <th className="px-4 py-3 text-left font-mono text-xs uppercase tracking-wider text-slate-500">
-                    หัวข้อโปรเจค
+                    ชื่อกลุ่ม / ห้องเรียน
+                  </th>
+                  <th className="px-4 py-3 text-left font-mono text-xs uppercase tracking-wider text-slate-500">
+                    หัวข้อโปรเจกต์
                   </th>
                   <th className="px-4 py-3 text-left font-mono text-xs uppercase tracking-wider text-slate-500">
                     รายชื่อผู้จัดทำ
@@ -241,17 +250,45 @@ export default function Home() {
                     key={group.id}
                     className="transition hover:bg-slate-800/40"
                   >
+                    {/* ชื่อกลุ่ม + แท็กห้องเรียน */}
                     <td className="px-4 py-4 font-medium text-slate-100">
-                      {group.name}
+                      <div>{group.name}</div>
+                      {group.class_name && (
+                        <span className="mt-1 inline-block rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-mono text-cyan-300">
+                          {group.class_name}
+                        </span>
+                      )}
                     </td>
 
-                    <td className="px-4 py-4 text-slate-400">
+                    {/* หัวข้อโปรเจกต์ */}
+                    <td className="px-4 py-4 text-slate-300 font-medium">
                       {group.project}
                     </td>
 
+                    {/* รายชื่อผู้จัดทำ (สมาชิกในกลุ่ม) */}
+                    <td className="px-4 py-4 text-slate-400 text-sm">
+                      {group.members && group.members.length > 0 ? (
+                        <ul className="space-y-1">
+                          {group.members.map((m, idx) => (
+                            <li key={idx} className="flex items-center gap-2">
+                              <span className="font-mono text-xs text-slate-500">
+                                {m.studentId}
+                              </span>
+                              <span>{m.fullname}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-slate-600 font-mono text-xs">
+                          - ไม่มีสมาชิก -
+                        </span>
+                      )}
+                    </td>
+
+                    {/* ความคืบหน้า */}
                     <td className="px-4 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-2 w-40 overflow-hidden rounded-full bg-slate-800">
+                        <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-800">
                           <div
                             className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-400 shadow-[0_0_10px_1px_rgba(34,211,238,0.6)] transition-all"
                             style={{ width: `${group.progress}%` }}
@@ -263,6 +300,7 @@ export default function Home() {
                       </div>
                     </td>
 
+                    {/* สถานะ */}
                     <td className="px-4 py-4">
                       <span
                         className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(
@@ -283,7 +321,6 @@ export default function Home() {
   )
 }
 
-// เพิ่ม hook นี้ไว้เหนือ component AverageTrendChart
 function useCountUp(target: number, duration = 700) {
   const [value, setValue] = useState(target)
   const prevRef = useRef(target)
@@ -295,7 +332,7 @@ function useCountUp(target: number, duration = 700) {
 
     const tick = (now: number) => {
       const progress = Math.min((now - startTime) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 3) // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3)
       setValue(Math.round(start + (target - start) * eased))
       if (progress < 1) {
         frame = requestAnimationFrame(tick)
@@ -412,7 +449,6 @@ function AverageTrendChart({
             </filter>
           </defs>
 
-          {/* grid */}
           {gridLines.map((g) => {
             const y = padY + chartH - (g / 100) * chartH
             return (
@@ -439,7 +475,6 @@ function AverageTrendChart({
             )
           })}
 
-          {/* area fill เข้ามาแบบ fade */}
           {areaPath && (
             <path
               key={`area-${history.length}`}
@@ -449,7 +484,6 @@ function AverageTrendChart({
             />
           )}
 
-          {/* เส้นกราฟ วาดตัวเองใหม่ทุกครั้งที่ history เปลี่ยน */}
           <path
             key={`line-${history.length}`}
             d={linePath}
@@ -463,7 +497,6 @@ function AverageTrendChart({
             className="chart-draw-line"
           />
 
-          {/* points */}
           {points.map((p, i) => {
             const { x, y } = toXY(i, p.value)
             const isLast = i === points.length - 1
