@@ -14,7 +14,6 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
     role: 'student',
-    project_name: '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,6 +24,11 @@ export default function RegisterPage() {
       return
     }
 
+    if (form.role === 'student' && !form.student_code.trim()) {
+      alert('กรุณากรอกรหัสนักศึกษา')
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -32,22 +36,21 @@ export default function RegisterPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          student_code: form.student_code,
-          name: form.name,
-          email: form.email,
+          student_code: form.role === 'student' ? form.student_code.trim() : null,
+          name: form.name.trim(),
+          email: form.email.trim(),
           password: form.password,
           role: form.role,
-          project_name: form.project_name,
         }),
       })
 
       const data = await res.json()
 
-      if (data.success || res.ok) {
-        alert('สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')
+      if (res.ok && data.success) {
+        alert('✨ สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ')
         router.push('/login')
       } else {
-        alert(data.message || 'เกิดข้อผิดพลาดในการลงทะเบียน')
+        alert(data.error || data.message || 'เกิดข้อผิดพลาดในการลงทะเบียน')
       }
     } catch (error) {
       console.error('Register failed:', error)
@@ -79,19 +82,36 @@ export default function RegisterPage() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* สถานะผู้ใช้งาน (เลือกก่อน) */}
           <div>
             <label className="mb-1 block text-xs font-mono text-slate-400">
-              รหัสนักศึกษา / รหัสประจำตัว <span className="text-rose-400">*</span>
+              สถานะผู้ใช้งาน <span className="text-rose-400">*</span>
             </label>
-            <input
-              type="text"
-              placeholder="เช่น 68319010015"
-              value={form.student_code}
-              onChange={(e) => setForm({ ...form, student_code: e.target.value })}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
-              required
-            />
+            <select
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 focus:border-cyan-400 focus:outline-none"
+            >
+              <option value="student">👨‍🎓 นักเรียน / นักศึกษา (Student)</option>
+            </select>
           </div>
+
+          {/* แสดงช่องรหัสนักศึกษาเฉพาะบทบาท student */}
+          {form.role === 'student' && (
+            <div>
+              <label className="mb-1 block text-xs font-mono text-slate-400">
+                รหัสนักศึกษา <span className="text-rose-400">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="เช่น 68319010015"
+                value={form.student_code}
+                onChange={(e) => setForm({ ...form, student_code: e.target.value })}
+                className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none font-mono"
+                required={form.role === 'student'}
+              />
+            </div>
+          )}
 
           <div>
             <label className="mb-1 block text-xs font-mono text-slate-400">
@@ -113,7 +133,7 @@ export default function RegisterPage() {
             </label>
             <input
               type="email"
-              placeholder="student@cmtc.ac.th"
+              placeholder={form.role === 'student' ? 'student@cmtc.ac.th' : 'teacher@cmtc.ac.th'}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
@@ -148,34 +168,6 @@ export default function RegisterPage() {
                 }
                 className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
                 required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs font-mono text-slate-400">
-                สถานะผู้ใช้งาน
-              </label>
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value })}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 focus:border-cyan-400 focus:outline-none"
-              >
-                <option value="student">นักเรียน (Student)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-mono text-slate-400">
-                ชื่อโปรเจกต์ (ถ้ามี)
-              </label>
-              <input
-                type="text"
-                placeholder="ระบบติดตามโครงงาน"
-                value={form.project_name}
-                onChange={(e) => setForm({ ...form, project_name: e.target.value })}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
               />
             </div>
           </div>

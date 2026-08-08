@@ -9,7 +9,9 @@ type StudentData = {
   group_name: string
   project: string
   progress: number
-  status: string
+  status: string // 'pending' | 'approved' | 'rejected' | 'no_group'
+  displayStatus: string
+  comment?: string
 }
 
 export default function StudentPage() {
@@ -18,6 +20,7 @@ export default function StudentPage() {
   const [student, setStudent] = useState<StudentData | null>(null)
   const [progress, setProgress] = useState('25')
   const [description, setDescription] = useState('')
+  const [file, setFile] = useState<File | null>(null) // 📁 State สำหรับเก็บไฟล์แนบ
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
@@ -25,86 +28,120 @@ export default function StudentPage() {
   const fetchStudentData = async (studentCode: string) => {
     try {
       const res = await fetch(`/api/student?student_code=${studentCode}`)
-      
+      const resJson = await res.json()
+
       if (!res.ok) {
-        throw new Error(`HTTP Error: ${res.status}`)
+        alert(
+          `เกิดข้อผิดพลาดจากเซิร์ฟเวอร์ (${res.status}):\n${
+            resJson.error || resJson.message || 'Unknown Error'
+          }`
+        )
+        return
       }
 
-      const text = await res.text()
-      // ป้องกัน Error Unexpected end of JSON input
-      const data = text ? JSON.parse(text) : null
+      const data = resJson.data || resJson
 
       if (data) {
-        // กำหนดค่าเริ่มต้น fallback หากเป็นนักเรียนที่เพิ่งสมัครใหม่และยังไม่มีกลุ่ม
         setStudent({
           name: data.name || 'นักศึกษารายใหม่',
-          student_code: data.student_code || studentCode,
-          group_name: data.group_name || 'ยังไม่มีกลุ่ม',
-          project: data.project || data.project_name || 'ยังไม่ได้ระบุโครงงาน',
+          student_code: data.studentCode || data.student_code || studentCode,
+          group_name: data.groupName || data.group_name || 'ยังไม่มีกลุ่ม',
+          project: data.project || 'ยังไม่ได้ระบุโครงงาน',
           progress: Number(data.progress) || 0,
-          status: data.status || 'รอการส่งงาน',
+          status: data.status || 'no_group',
+          displayStatus: data.displayStatus || data.status || 'รอการส่งงาน',
+          comment: data.comment || '',
         })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Fetch student error:', error)
+      alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้: ' + error.message)
     } finally {
       setLoading(false)
     }
   }
 
+  // 🟢 ปรับปรุง useEffect ตรวจเช็ก Auth ให้ใช้ replace และครอบ try-catch กัน crash เวลา Back กลับมา
   useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (!userStr) {
-      router.push('/login')
+      router.replace('/login')
       return
     }
 
-    const user = JSON.parse(userStr)
+    try {
+      const user = JSON.parse(userStr)
 
-    // เช็กสิทธิ์การเข้าถึง
-    if (!user.student_code || user.role !== 'student') {
-      router.push('/login')
-      return
+      // ตรวจสอบข้อมูลผู้ใช้เบื้องต้น
+      if (!user.student_code && !user.studentCode && user.role !== 'student') {
+        router.replace('/login')
+        return
+      }
+
+      const code = user.student_code || user.studentCode
+      if (code) {
+        fetchStudentData(code)
+      } else {
+        router.replace('/login')
+      }
+    } catch (error) {
+      console.error('JSON parse error on Auth check:', error)
+      router.replace('/login')
     }
-
-    fetchStudentData(user.student_code)
   }, [router])
 
-  // ฟังก์ชันส่งรายงานความคืบหน้า
+  // ฟังก์ชันส่งรายงานความคืบหน้า (รองรับทั้ง Text และ File)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!student) return
 
+    // เช็กสถานะ ต้องเป็น approved เท่านั้น
+    if (student.status !== 'approved') {
+      alert(
+        'โครงงานของคุณต้องได้รับการอนุมัติจากอาจารย์ก่อน จึงจะสามารถส่งความคืบหน้าได้'
+      )
+      return
+    }
+
     setSubmitting(true)
     try {
+      // ใช้ FormData สำหรับส่งไฟล์
+      const formData = new FormData()
+      formData.append('student_code', student.student_code)
+      formData.append('groupName', student.group_name)
+      formData.append('progress', progress)
+      formData.append('description', description)
+      
+      // แนบไฟล์เข้าไปด้วยหากมีการเลือกไฟล์
+      if (file) {
+        formData.append('file', file)
+      }
+
       const res = await fetch('/api/update-progress', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          student_code: student.student_code,
-          groupName: student.group_name,
-          progress: Number(progress),
-          description: description,
-        }),
+        body: formData,
       })
 
       const data = await res.json()
 
       if (data.success || res.ok) {
-        alert('ส่งความคืบหน้าเรียบร้อยแล้ว!')
-        
-        // โหลดข้อมูลล่าสุดใหม่
-        const user = JSON.parse(localStorage.getItem('user') || '{}')
-        if (user.student_code) {
-          await fetchStudentData(user.student_code)
+        alert('✨ ส่งความคืบหน้าและแนบไฟล์เรียบร้อยแล้ว!')
+
+        const userStr = localStorage.getItem('user')
+        if (userStr) {
+          const user = JSON.parse(userStr)
+          const code = user.student_code || user.studentCode
+          if (code) {
+            await fetchStudentData(code)
+          }
         }
-        
+
+        // ล้างค่าฟอร์ม
         setDescription('')
+        setFile(null)
         setProgress('25')
       } else {
-        alert(data.message || 'ไม่สามารถส่งความคืบหน้าได้')
+        alert(data.message || data.error || 'ไม่สามารถส่งความคืบหน้าได้')
       }
     } catch (error) {
       console.error(error)
@@ -116,7 +153,7 @@ export default function StudentPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('user')
-    router.push('/login')
+    router.replace('/login')
   }
 
   if (loading) {
@@ -128,6 +165,8 @@ export default function StudentPage() {
   }
 
   if (!student) return null
+
+  const isApproved = student.status === 'approved'
 
   return (
     <main
@@ -150,13 +189,72 @@ export default function StudentPage() {
             </p>
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 font-medium text-rose-300 transition hover:bg-rose-500/20"
-          >
-            🚪 ออกจากระบบ
-          </button>
+          <div className="flex gap-2">
+            {/* 🟢 ปุ่มกลับหน้าหลัก */}
+            <button
+              onClick={() => router.push('/')}
+              className="rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-700 hover:text-white"
+            >
+              🏠 หน้าหลัก
+            </button>
+
+            <button
+              onClick={() => router.push('/newstudent')}
+              className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 font-medium text-cyan-300 transition hover:bg-cyan-400/20 text-xs"
+            >
+              📋 จัดการกลุ่ม
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 font-medium text-rose-300 transition hover:bg-rose-500/20 text-xs"
+            >
+              🚪 ออกจากระบบ
+            </button>
+          </div>
         </div>
+
+        {/* Status Alert Banner */}
+        {student.status === 'no_group' && (
+          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 text-amber-200 backdrop-blur-xl">
+            <h3 className="font-bold flex items-center gap-2">⚠️ คุณยังไม่มีกลุ่มโครงงาน</h3>
+            <p className="mt-1 text-xs text-amber-300/80">
+              กรุณาไปที่หน้าจัดตั้งกลุ่มเพื่อเสนอชื่อโครงงานและเลือกสมาชิกในกลุ่ม
+            </p>
+            <button
+              onClick={() => router.push('/newstudent')}
+              className="mt-3 rounded-xl border border-amber-400/40 bg-amber-400/20 px-4 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-400/30"
+            >
+              👉 ไปหน้าสร้างกลุ่มโครงงาน
+            </button>
+          </div>
+        )}
+
+        {student.status === 'pending' && (
+          <div className="rounded-2xl border border-sky-500/40 bg-sky-500/10 p-5 text-sky-200 backdrop-blur-xl">
+            <h3 className="font-bold flex items-center gap-2">⏳ โครงงานอยู่ระหว่างรออาจารย์อนุมัติ</h3>
+            <p className="mt-1 text-xs text-sky-300/80">
+              เมื่ออาจารย์อนุมัติหัวข้อโครงงานแล้ว ระบบจะปลดล็อกฟอร์มส่งรายงานความคืบหน้าให้โดยอัตโนมัติ
+            </p>
+          </div>
+        )}
+
+        {student.status === 'rejected' && (
+          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5 text-rose-200 backdrop-blur-xl">
+            <h3 className="font-bold flex items-center gap-2">❌ โครงงานไม่ผ่านการอนุมัติ / ให้แก้ไข</h3>
+            {student.comment && (
+              <div className="mt-2 rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300 font-mono">
+                💬 ข้อเสนอแนะจากอาจารย์: "{student.comment}"
+              </div>
+            )}
+            <button
+              onClick={() => router.push('/newstudent')}
+              className="mt-3 rounded-xl border border-rose-400/40 bg-rose-400/20 px-4 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-400/30"
+            >
+              ✏️ แก้ไขข้อมูลกลุ่มโครงงาน
+            </button>
+          </div>
+        )}
 
         {/* Student Info */}
         <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl">
@@ -211,22 +309,39 @@ export default function StudentPage() {
             </div>
 
             <div className="flex items-center gap-2 pt-1">
-              <span className="text-xs font-mono text-slate-400">สถานะล่าสุด:</span>
-              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-3 py-0.5 text-xs font-semibold text-amber-300">
-                {student.status}
+              <span className="text-xs font-mono text-slate-400">สถานะอนุมัติ:</span>
+              <span
+                className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${
+                  isApproved
+                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                    : student.status === 'rejected'
+                    ? 'border-rose-400/30 bg-rose-400/10 text-rose-300'
+                    : 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                }`}
+              >
+                {student.displayStatus}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Submit Form */}
+        {/* Submit Form (เปิดให้ส่งเมื่อ status === 'approved') */}
         <form
           onSubmit={handleSubmit}
-          className="space-y-5 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl"
+          className={`space-y-5 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl transition ${
+            !isApproved ? 'opacity-50 pointer-events-none' : ''
+          }`}
         >
-          <h2 className="text-lg font-semibold text-cyan-300 font-mono border-b border-slate-800 pb-2">
-            🚀 ส่งความคืบหน้าใหม่
-          </h2>
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h2 className="text-lg font-semibold text-cyan-300 font-mono">
+              🚀 ส่งความคืบหน้าใหม่
+            </h2>
+            {!isApproved && (
+              <span className="text-xs text-rose-400 font-mono">
+                🔒 ปลดล็อกเมื่อโครงงานได้รับการอนุมัติ
+              </span>
+            )}
+          </div>
 
           <div>
             <label className="mb-2 block text-xs font-mono text-slate-400">
@@ -238,6 +353,7 @@ export default function StudentPage() {
                 <button
                   key={p}
                   type="button"
+                  disabled={!isApproved}
                   onClick={() => setProgress(p)}
                   className={`rounded-xl border py-3 font-mono font-semibold transition ${
                     progress === p
@@ -259,6 +375,7 @@ export default function StudentPage() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              disabled={!isApproved}
               rows={4}
               required
               placeholder="อธิบายหัวข้อ หรืองานที่ทำเสร็จแล้วในรอบนี้..."
@@ -266,9 +383,27 @@ export default function StudentPage() {
             />
           </div>
 
+          {/* 📁 ช่องแนบไฟล์เอกสารเพิ่มเติม */}
+          <div>
+            <label className="mb-2 block text-xs font-mono text-slate-400">
+              📎 แนบไฟล์เอกสาร/รายงาน (PDF, DOCX, ZIP หรือรูปภาพ)
+            </label>
+            <input
+              type="file"
+              disabled={!isApproved}
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="w-full text-xs text-slate-400 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-500/10 file:px-4 file:py-2.5 file:text-xs file:font-semibold file:text-cyan-300 hover:file:bg-cyan-500/20 cursor-pointer rounded-xl border border-slate-800 bg-slate-950/60 p-2"
+            />
+            {file && (
+              <p className="mt-2 text-xs text-emerald-400 font-mono">
+                ✓ ไฟล์ที่เลือก: {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+              </p>
+            )}
+          </div>
+
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !isApproved}
             className="w-full rounded-xl border border-cyan-400/30 bg-cyan-400/10 py-3.5 font-semibold text-cyan-300 shadow-[0_0_20px_-6px_rgba(34,211,238,0.5)] transition hover:bg-cyan-400/20 disabled:opacity-50"
           >
             {submitting ? 'กำลังส่งข้อมูล...' : '✨ ยืนยันการส่งความคืบหน้า'}

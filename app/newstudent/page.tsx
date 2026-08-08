@@ -13,6 +13,7 @@ interface Group {
   className: string;
   groupName: string;
   projectName: string;
+  created_by?: string | number;
   members: Member[];
 }
 
@@ -20,6 +21,9 @@ export default function NewStudentPage() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  // User State
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Form States
   const [className, setClassName] = useState("ปวส.2 สายตรง");
@@ -33,10 +37,27 @@ export default function NewStudentPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ดึงข้อมูลกลุ่มทั้งหมดจาก MySQL เมื่อเปิดหน้าเว็บ
+  // 🔒 เช็กสิทธิ์ล็อกอิน และดึงข้อมูลกลุ่มทั้งหมดเมื่อเปิดหน้าเว็บ
   useEffect(() => {
-    fetchGroups();
-  }, []);
+    const userStr = localStorage.getItem("user");
+    if (!userStr) {
+      router.replace("/login");
+      return;
+    }
+
+    try {
+      const user = JSON.parse(userStr);
+      if (!user.role) {
+        router.replace("/login");
+        return;
+      }
+      setCurrentUser(user);
+      fetchGroups();
+    } catch (error) {
+      console.error("Auth check error:", error);
+      router.replace("/login");
+    }
+  }, [router]);
 
   const fetchGroups = async () => {
     try {
@@ -64,6 +85,14 @@ export default function NewStudentPage() {
 
   const handleOpenCreateModal = () => {
     resetForm();
+    // เพิ่มตัวผู้สร้างลงในรายชื่อสมาชิกอัตโนมัติ (เฉพาะถ้าเป็นนักเรียน)
+    if (currentUser && currentUser.role !== "teacher") {
+      const myCode = currentUser.student_code || currentUser.studentId || "";
+      const myName = currentUser.name || currentUser.fullname || "";
+      if (myCode && myName) {
+        setMembers([{ studentId: myCode, fullname: myName }]);
+      }
+    }
     setOpen(true);
   };
 
@@ -100,7 +129,16 @@ export default function NewStudentPage() {
     setMembers(members.filter((_, i) => i !== index));
   };
 
-  // บันทึกข้อมูลลง MySQL ผ่าน API
+  // 🔄 ย้อนกลับตาม Role ของผู้ใช้งาน
+  const handleGoBack = () => {
+    if (currentUser?.role === "teacher") {
+      router.push("/");
+    } else {
+      router.push("/student");
+    }
+  };
+
+  // 💾 บันทึกข้อมูลกลุ่มลง MySQL
   const handleSaveGroup = async () => {
     if (!groupName.trim()) {
       alert("กรุณากรอกชื่อกลุ่ม");
@@ -117,45 +155,107 @@ export default function NewStudentPage() {
       return;
     }
 
+    if (!currentUser) {
+      alert("กรุณาเข้าสู่ระบบก่อนดำเนินการสร้างกลุ่ม");
+      router.replace("/login");
+      return;
+    }
+
+    const createdBy = currentUser.student_code || currentUser.studentId || currentUser.id;
+
     const payload = {
       className,
       groupName: groupName.trim(),
       projectName: projectName.trim(),
       members,
+      createdBy,
+      requesterStudentId: createdBy,
+      requesterRole: currentUser.role,
     };
 
     try {
       if (editingId !== null) {
-        // แก้ไขกลุ่มเดิมใน MySQL
-        await fetch(`/api/groups/${editingId}`, {
+        const res = await fetch(`/api/groups/${editingId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || data.message || "ไม่สามารถแก้ไขกลุ่มได้");
+          return;
+        }
+
+        // อัปเดตข้อมูลผู้ใช้เฉพาะกรณีที่เป็นนักเรียน
+        if (currentUser.role !== "teacher") {
+          const updatedUser = {
+            ...currentUser,
+            group_name: groupName.trim(),
+            project: projectName.trim(),
+          };
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+        }
+
+        alert("✨ แก้ไขข้อมูลกลุ่มเรียบร้อยแล้ว");
       } else {
-        // เพิ่มกลุ่มใหม่ลง MySQL
-        await fetch("/api/groups", {
+        const res = await fetch("/api/groups", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || data.message || "ไม่สามารถสร้างกลุ่มได้");
+          return;
+        }
+
+        if (currentUser.role !== "teacher") {
+          const newGroupId = data.groupId || data.id;
+          const updatedUser = {
+            ...currentUser,
+            group_id: newGroupId,
+            group_name: groupName.trim(),
+            project: projectName.trim(),
+            status: "pending",
+          };
+          localStorage.setItem("user", JSON.stringify(updatedUser));
+        }
+
+        alert("✨ บันทึกข้อมูลกลุ่มเรียบร้อยแล้ว!");
       }
 
-      fetchGroups(); // รีโหลดข้อมูลล่าสุดจาก DB
       handleCloseModal();
+      
+      // นำทางกลับตาม Role
+      handleGoBack();
     } catch (error) {
       console.error("Error saving group:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
     }
   };
 
-  // ลบกลุ่มออกจาก MySQL
+  // 🗑️ ลบกลุ่ม
   const handleDeleteGroup = async (id?: number) => {
     if (!id) return;
     if (confirm("คุณต้องการลบกลุ่มนี้ใช่หรือไม่? ข้อมูลสมาชิกจะถูกลบออกไปด้วย")) {
       try {
-        await fetch(`/api/groups/${id}`, { method: "DELETE" });
-        fetchGroups();
+        const studentCodeParam = currentUser?.student_code || currentUser?.studentId || currentUser?.id || "";
+        const roleParam = currentUser?.role || "student";
+
+        const res = await fetch(
+          `/api/groups/${id}?studentId=${studentCodeParam}&role=${roleParam}`,
+          { method: "DELETE" }
+        );
+
+        if (res.ok) {
+          alert("ลบกลุ่มเรียบร้อยแล้ว");
+          fetchGroups();
+        } else {
+          const data = await res.json();
+          alert(data.error || "เกิดข้อผิดพลาดในการลบกลุ่ม");
+        }
       } catch (error) {
         console.error("Error deleting group:", error);
         alert("เกิดข้อผิดพลาดในการลบข้อมูล");
@@ -180,16 +280,17 @@ export default function NewStudentPage() {
               📋 จัดการกลุ่มนักเรียน
             </h1>
             <p className="mt-1 text-sm text-slate-400">
-              ( เพิ่ม แก้ไข และลบกลุ่มนักเรียนพร้อมรายชื่อผู้จัดทำ ) 
+              ( เพิ่ม แก้ไข และลบกลุ่มนักเรียนพร้อมรายชื่อผู้จัดทำ )
             </p>
           </div>
 
           <div className="flex gap-3">
+            {/* 🟢 ปุ่มย้อนกลับยืดหยุ่นตามสิทธิ์ผู้ใช้งาน (อาจารย์ / นักเรียน) */}
             <button
-              onClick={() => router.push("/")}
+              onClick={handleGoBack}
               className="flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/40 px-4 py-2 font-medium text-slate-300 transition hover:bg-slate-800"
             >
-              ⬅️ กลับหน้าหลัก
+              ⬅️ {currentUser?.role === "teacher" ? "กลับหน้าอาจารย์" : "กลับหน้าส่งงาน"}
             </button>
             <button
               onClick={handleOpenCreateModal}

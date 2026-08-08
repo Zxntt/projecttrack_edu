@@ -6,41 +6,66 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { student_code, name, email, password, role = 'student' } = body
 
-    // 1. ตรวจสอบเบื้องต้นว่ากรอกครบไหม
-    if (!student_code || !name || !email || !password) {
+    // 1. ตรวจสอบเบื้องต้นตามบทบาท (Role)
+    if (!name || !password) {
       return NextResponse.json(
-        { error: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' },
+        { success: false, error: 'กรุณากรอกชื่อและรหัสผ่านให้ครบถ้วน' },
         { status: 400 }
       )
     }
 
-    // 2. เช็กว่ารหัสผู้ใช้ หรือ อีเมลนี้ ซ้ำในตาราง users หรือยัง
-    const [existingUsers]: any = await db.query(
-      'SELECT id FROM users WHERE student_code = ? OR email = ?',
-      [student_code, email]
+    // กรณีเป็นนักเรียน ต้องมีรหัสนักศึกษา
+    if (role === 'student' && !student_code) {
+      return NextResponse.json(
+        { success: false, error: 'กรุณากรอกรหัสนักศึกษา' },
+        { status: 400 }
+      )
+    }
+
+    const studentCode = student_code ? student_code.trim() : null
+    // ถ้าไม่มีอีเมลส่งมา ให้สร้างอีเมลอัตโนมัติจากรหัสนักศึกษา
+    const userEmail = email ? email.trim() : `${studentCode}@cmtc.ac.th`
+
+    // 2. เช็กว่ารหัสนักศึกษาซ้ำหรือไม่ (เฉพาะกรณีมี student_code)
+    if (studentCode) {
+      const [existingStudent]: any = await db.query(
+        'SELECT id FROM users WHERE student_code = ?',
+        [studentCode]
+      )
+      if (existingStudent.length > 0) {
+        return NextResponse.json(
+          { success: false, error: 'รหัสนักศึกษานี้มีอยู่ในระบบแล้ว' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // 3. เช็กว่าอีเมลซ้ำหรือไม่
+    const [existingEmail]: any = await db.query(
+      'SELECT id FROM users WHERE email = ?',
+      [userEmail]
     )
-
-    if (existingUsers.length > 0) {
+    if (existingEmail.length > 0) {
       return NextResponse.json(
-        { error: 'รหัสผู้ใช้หรืออีเมลนี้มีอยู่ในระบบแล้ว' },
+        { success: false, error: 'อีเมลนี้มีผู้ใช้งานแล้วในระบบ' },
         { status: 400 }
       )
     }
 
-    // 3. บันทึกข้อมูลใหม่ลงตาราง users
+    // 4. บันทึกข้อมูลใหม่ลงตาราง users (กำหนดให้ group_id เป็น NULL ในตอนแรก)
     await db.query(
-      'INSERT INTO users (student_code, name, email, password, role) VALUES (?, ?, ?, ?, ?)',
-      [student_code, name, email, password, role]
+      'INSERT INTO users (student_code, name, email, password, role, group_id) VALUES (?, ?, ?, ?, ?, NULL)',
+      [studentCode, name.trim(), userEmail, password, role]
     )
 
     return NextResponse.json(
-      { message: 'สมัครสมาชิกสำเร็จ' },
+      { success: true, message: 'สมัครสมาชิกสำเร็จ' },
       { status: 201 }
     )
   } catch (error: any) {
     console.error('Register Error:', error)
     return NextResponse.json(
-      { error: 'เกิดข้อผิดพลาดในการสมัครสมาชิก' },
+      { success: false, error: 'เกิดข้อผิดพลาดในการสมัครสมาชิก: ' + error.message },
       { status: 500 }
     )
   }

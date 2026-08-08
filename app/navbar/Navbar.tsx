@@ -1,0 +1,110 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import Link from 'next/link'
+
+export default function Navbar() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [user, setUser] = useState<any>(null)
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      setUser(JSON.parse(userStr))
+    }
+  }, [pathname])
+
+  const handleLogout = () => {
+    localStorage.removeItem('user')
+    setUser(null)
+    router.push('/login')
+  }
+
+  // ไม่แสดง Navbar ในหน้า Login และ Register
+  if (pathname === '/login' || pathname === '/register') {
+    return null
+  }
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#05070d]/80 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3.5">
+        {/* Brand Logo */}
+        <Link href="/" className="flex items-center gap-2">
+          <span className="text-xl font-bold bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-transparent">
+            🚀 ProjectTrack
+          </span>
+          {user?.role && (
+            <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[10px] font-mono text-cyan-300">
+              {user.role === 'teacher' ? 'TEACHER' : 'STUDENT'}
+            </span>
+          )}
+        </Link>
+
+        {/* Navigation Links */}
+        <nav className="flex items-center gap-2 sm:gap-4">
+          {user?.role === 'student' && (
+            <>
+              <Link
+                href="/student"
+                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                  pathname === '/student'
+                    ? 'bg-cyan-400/10 text-cyan-300 border border-cyan-400/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                📊 Dashboard
+              </Link>
+              <Link
+                href="/newstudent"
+                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                  pathname === '/newstudent'
+                    ? 'bg-cyan-400/10 text-cyan-300 border border-cyan-400/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                📋 จัดการกลุ่ม
+              </Link>
+            </>
+          )}
+
+          {user?.role === 'teacher' && (
+            <Link
+              href="/teacher/approvals"
+              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                pathname === '/teacher/approvals'
+                  ? 'bg-amber-400/10 text-amber-300 border border-amber-400/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              🛡️ ศูนย์อนุมัติโครงงาน
+            </Link>
+          )}
+
+          {/* User Profile & Logout */}
+          {user ? (
+            <div className="flex items-center gap-3 border-l border-slate-800 pl-3">
+              <span className="hidden text-xs text-slate-300 sm:inline font-mono">
+                {user.name}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+              >
+                🚪 ออกจากระบบ
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-400/20"
+            >
+              🔑 เข้าสู่ระบบ
+            </Link>
+          )}
+        </nav>
+      </div>
+    </header>
+  )
+}

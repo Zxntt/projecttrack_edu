@@ -29,26 +29,54 @@ function statusStyle(status: string) {
   switch (status) {
     case 'ผ่าน':
     case 'เสร็จสมบูรณ์':
+    case 'approved':
       return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300 shadow-[0_0_12px_-2px_rgba(52,211,153,0.5)]'
     case 'รอตรวจ':
+    case 'pending':
       return 'border-amber-400/30 bg-amber-400/10 text-amber-300 shadow-[0_0_12px_-2px_rgba(251,191,36,0.5)]'
     case 'ต้องแก้ไข':
+    case 'rejected':
       return 'border-rose-400/30 bg-rose-400/10 text-rose-300 shadow-[0_0_12px_-2px_rgba(251,113,133,0.5)]'
     default:
       return 'border-slate-500/30 bg-slate-500/10 text-slate-300'
   }
 }
 
+function getStatusLabel(status: string) {
+  if (status === 'approved' || status === 'ผ่าน') return '✅ ผ่านการอนุมัติ'
+  if (status === 'pending' || status === 'รอตรวจ') return '⏳ รอตรวจ'
+  if (status === 'rejected' || status === 'ต้องแก้ไข') return '❌ ต้องแก้ไข'
+  return status || 'ยังไม่ระบุ'
+}
+
 export default function Home() {
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
   const [history, setHistory] = useState<HistoryPoint[]>([])
+  const [teacherName, setTeacherName] = useState<string>('')
+
+  // 🔍 State สำหรับ Search & Filter
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
+  const [sortBy, setSortBy] = useState<'id-desc' | 'progress-desc' | 'progress-asc'>('id-desc')
 
   const router = useRouter()
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    if (user.role !== 'teacher') {
+    const userStr = localStorage.getItem('user')
+    if (!userStr) {
+      router.push('/login')
+      return
+    }
+
+    try {
+      const user = JSON.parse(userStr)
+      if (user.role !== 'teacher') {
+        router.push('/login')
+        return
+      }
+      setTeacherName(user.name || user.fullname || 'อาจารย์')
+    } catch (e) {
       router.push('/login')
     }
   }, [router])
@@ -95,7 +123,34 @@ export default function Home() {
       : 0
 
   const submitted = groups.filter((g) => Number(g.progress) > 0).length
-  const pending = groups.filter((g) => g.status === 'รอตรวจ').length
+  const pending = groups.filter((g) => g.status === 'รอตรวจ' || g.status === 'pending').length
+
+  // 🎯 Filter & Sort Logic
+  const filteredGroups = groups
+    .filter((g) => {
+      const matchSearch =
+        (g.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (g.project || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (g.class_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        g.members?.some(
+          (m) =>
+            m.fullname.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            m.studentId.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+
+      const st = (g.status || '').toLowerCase()
+      let matchStatus = true
+      if (statusFilter === 'pending') matchStatus = st === 'pending' || st === 'รอตรวจ'
+      if (statusFilter === 'approved') matchStatus = st === 'approved' || st === 'ผ่าน' || st === 'เสร็จสมบูรณ์'
+      if (statusFilter === 'rejected') matchStatus = st === 'rejected' || st === 'ต้องแก้ไข'
+
+      return matchSearch && matchStatus
+    })
+    .sort((a, b) => {
+      if (sortBy === 'progress-desc') return Number(b.progress || 0) - Number(a.progress || 0)
+      if (sortBy === 'progress-asc') return Number(a.progress || 0) - Number(b.progress || 0)
+      return b.id - a.id
+    })
 
   if (loading) {
     return (
@@ -131,12 +186,17 @@ export default function Home() {
               <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-cyan-400/80">
                 ระบบออนไลน์ · live sync
               </span>
+              {teacherName && (
+                <span className="ml-2 rounded-full border border-violet-400/30 bg-violet-400/10 px-2.5 py-0.5 text-[11px] font-mono text-violet-300">
+                  👨‍🏫 {teacherName}
+                </span>
+              )}
             </div>
             <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
               ⚡ ProjectTrack EDU
             </h1>
             <p className="mt-1 text-sm text-slate-400">
-              ระบบติดตามความก้าวหน้าโครงงานนักเรียน
+              ระบบติดตามความก้าวหน้าและศูนย์อนุมัติโครงงานนักเรียน
             </p>
           </div>
 
@@ -150,17 +210,17 @@ export default function Home() {
             </button>
 
             <button
-              onClick={() => router.push('/newstudent')}
-              className="flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 font-medium text-emerald-300 shadow-[0_0_20px_-6px_rgba(125,245,39,0.5)] transition hover:bg-emerald-400/20"
+              onClick={() => router.push('/approvals')}
+              className="flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2 font-medium text-amber-300 shadow-[0_0_20px_-6px_rgba(251,191,36,0.5)] transition hover:bg-amber-400/20"
             >
-              📋 เพิ่มรายชื่อ
+              🛡️ ศูนย์อนุมัติโครงงาน
             </button>
 
             <button
-              onClick={() => router.push('/review')}
-              className="flex items-center gap-2 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2 font-medium text-amber-300 shadow-[0_0_20px_-6px_rgba(251,191,36,0.5)] transition hover:bg-amber-400/20"
+              onClick={() => router.push('/newstudent')}
+              className="flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 font-medium text-emerald-300 shadow-[0_0_20px_-6px_rgba(52,211,153,0.5)] transition hover:bg-emerald-400/20"
             >
-              📋 ตรวจงาน
+              📋 จัดการกลุ่มนักเรียน
             </button>
 
             <button
@@ -187,7 +247,7 @@ export default function Home() {
           />
           <StatCard
             icon="📡"
-            label="ส่งแล้ว"
+            label="ส่งความคืบหน้าแล้ว"
             value={submitted}
             unit="กลุ่ม"
             accent="from-emerald-400 to-emerald-200"
@@ -195,7 +255,7 @@ export default function Home() {
           />
           <StatCard
             icon="⏳"
-            label="รอตรวจ"
+            label="รออนุมัติ / ตรวจสอบ"
             value={pending}
             unit="กลุ่ม"
             accent="from-amber-400 to-amber-200"
@@ -211,17 +271,73 @@ export default function Home() {
           />
         </section>
 
-        {/* Table */}
-        <section className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-4 backdrop-blur-xl">
-          <div className="mb-4 flex items-center gap-2">
-            <h2 className="text-xl font-semibold text-slate-100">
-              ความก้าวหน้าของแต่ละกลุ่ม
-            </h2>
-            <span className="font-mono text-xs text-slate-500">
-              // {groups.length} records
-            </span>
+        {/* Table & Controls Section */}
+        <section className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl space-y-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-100 flex items-center gap-2">
+                📌 รายชื่อและสถานะความก้าวหน้า
+              </h2>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                แสดงผล {filteredGroups.length} จากทั้งหมด {groups.length} กลุ่ม
+              </p>
+            </div>
+
+            {/* 🔍 Search Input & Sort Options */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[240px]">
+                <input
+                  type="text"
+                  placeholder="🔍 ค้นหากลุ่ม, โปรเจกต์, ชื่อผู้จัดทำ..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-2 text-xs text-slate-200 placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-slate-300"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-300 font-mono focus:border-cyan-400 focus:outline-none"
+              >
+                <option value="id-desc">เรียงตาม: ล่าสุด</option>
+                <option value="progress-desc">เรียงตาม: ความคืบหน้า (มาก ➔ น้อย)</option>
+                <option value="progress-asc">เรียงตาม: ความคืบหน้า (น้อย ➔ มาก)</option>
+              </select>
+            </div>
           </div>
 
+          {/* 🏷️ Filter Tabs */}
+          <div className="flex flex-wrap gap-2 border-b border-slate-800/80 pb-3">
+            {[
+              { id: 'all', label: '📁 ทั้งหมด' },
+              { id: 'pending', label: '⏳ รอตรวจ' },
+              { id: 'approved', label: '✅ ผ่านแล้ว' },
+              { id: 'rejected', label: '❌ ให้แก้ไข' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setStatusFilter(tab.id as any)}
+                className={`rounded-xl px-3.5 py-1.5 text-xs font-mono transition ${
+                  statusFilter === tab.id
+                    ? 'border border-cyan-400/40 bg-cyan-400/20 text-cyan-300 font-semibold'
+                    : 'border border-slate-800 bg-slate-950/40 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Table */}
           <div className="overflow-x-auto rounded-xl border border-slate-800/60">
             <table className="min-w-full divide-y divide-slate-800/80">
               <thead className="bg-slate-950/60">
@@ -241,77 +357,98 @@ export default function Home() {
                   <th className="px-4 py-3 text-left font-mono text-xs uppercase tracking-wider text-slate-500">
                     สถานะ
                   </th>
+                  <th className="px-4 py-3 text-center font-mono text-xs uppercase tracking-wider text-slate-500">
+                    การกระทำ
+                  </th>
                 </tr>
               </thead>
 
               <tbody className="divide-y divide-slate-800/60 bg-slate-900/20">
-                {groups.map((group) => (
-                  <tr
-                    key={group.id}
-                    className="transition hover:bg-slate-800/40"
-                  >
-                    {/* ชื่อกลุ่ม + แท็กห้องเรียน */}
-                    <td className="px-4 py-4 font-medium text-slate-100">
-                      <div>{group.name}</div>
-                      {group.class_name && (
-                        <span className="mt-1 inline-block rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-mono text-cyan-300">
-                          {group.class_name}
-                        </span>
-                      )}
-                    </td>
-
-                    {/* หัวข้อโปรเจกต์ */}
-                    <td className="px-4 py-4 text-slate-300 font-medium">
-                      {group.project}
-                    </td>
-
-                    {/* รายชื่อผู้จัดทำ (สมาชิกในกลุ่ม) */}
-                    <td className="px-4 py-4 text-slate-400 text-sm">
-                      {group.members && group.members.length > 0 ? (
-                        <ul className="space-y-1">
-                          {group.members.map((m, idx) => (
-                            <li key={idx} className="flex items-center gap-2">
-                              <span className="font-mono text-xs text-slate-500">
-                                {m.studentId}
-                              </span>
-                              <span>{m.fullname}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span className="text-slate-600 font-mono text-xs">
-                          - ไม่มีสมาชิก -
-                        </span>
-                      )}
-                    </td>
-
-                    {/* ความคืบหน้า */}
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-800">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-400 shadow-[0_0_10px_1px_rgba(34,211,238,0.6)] transition-all"
-                            style={{ width: `${group.progress}%` }}
-                          />
-                        </div>
-                        <span className="font-mono text-sm font-semibold text-slate-300">
-                          {group.progress}%
-                        </span>
-                      </div>
-                    </td>
-
-                    {/* สถานะ */}
-                    <td className="px-4 py-4">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(
-                          group.status
-                        )}`}
-                      >
-                        {group.status}
-                      </span>
+                {filteredGroups.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center font-mono text-slate-500 text-xs">
+                      🕵️‍♂️ ไม่พบข้อมูลกลุ่มที่ตรงกับเงื่อนไขการค้นหา
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredGroups.map((group) => (
+                    <tr
+                      key={group.id}
+                      className="transition hover:bg-slate-800/40"
+                    >
+                      {/* ชื่อกลุ่ม + แท็กห้องเรียน */}
+                      <td className="px-4 py-4 font-medium text-slate-100">
+                        <div>{group.name}</div>
+                        {group.class_name && (
+                          <span className="mt-1 inline-block rounded border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-mono text-cyan-300">
+                            {group.class_name}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* หัวข้อโปรเจกต์ */}
+                      <td className="px-4 py-4 text-slate-300 font-medium max-w-xs truncate">
+                        {group.project}
+                      </td>
+
+                      {/* รายชื่อผู้จัดทำ (สมาชิกในกลุ่ม) */}
+                      <td className="px-4 py-4 text-slate-400 text-sm">
+                        {group.members && group.members.length > 0 ? (
+                          <ul className="space-y-1">
+                            {group.members.map((m, idx) => (
+                              <li key={idx} className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-slate-500">
+                                  {m.studentId}
+                                </span>
+                                <span>{m.fullname}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="text-slate-600 font-mono text-xs">
+                            - ไม่มีสมาชิก -
+                          </span>
+                        )}
+                      </td>
+
+                      {/* ความคืบหน้า */}
+                      <td className="px-4 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 w-28 overflow-hidden rounded-full bg-slate-800">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-violet-400 shadow-[0_0_10px_1px_rgba(34,211,238,0.6)] transition-all"
+                              style={{ width: `${group.progress}%` }}
+                            />
+                          </div>
+                          <span className="font-mono text-sm font-semibold text-slate-300">
+                            {group.progress}%
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* สถานะ */}
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(
+                            group.status
+                          )}`}
+                        >
+                          {getStatusLabel(group.status)}
+                        </span>
+                      </td>
+
+                      {/* Action Button */}
+                      <td className="px-4 py-4 text-center">
+                        <button
+                          onClick={() => router.push('/approvals')}
+                          className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-mono font-medium text-cyan-300 transition hover:bg-cyan-500/20"
+                        >
+                          🔍 ตรวจงาน
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
