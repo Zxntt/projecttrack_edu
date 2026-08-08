@@ -59,6 +59,7 @@ export async function GET(request: Request) {
           className: group.class_name || group.className || 'ปวส.2 สายตรง',
           groupName: group.name || group.groupName || `กลุ่มที่ ${group.id}`,
           projectName: group.project || group.project_name_th || group.projectName || 'ยังไม่ระบุหัวข้อ',
+          progress: Number(group.progress) || 0, // 🟢 ส่งเปอร์เซ็นต์ความคืบหน้าให้อาจารย์เห็น
           status: (group.status || 'pending').trim().toLowerCase(),
           comment: group.comment || '',
           fileUrl: group.file_url || null, // 👈 ส่งลิงก์ไฟล์งานให้อาจารย์
@@ -114,7 +115,7 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: targetStatus === 'approved' ? 'อนุมัติโครงงานเรียบร้อยแล้ว' : 'ส่งข้อเสนอแนะเรียบร้อยแล้ว',
+      message: targetStatus === 'approved' ? 'อนุมัติเรียบร้อยแล้ว' : 'ส่งข้อเสนอแนะเรียบร้อยแล้ว',
     })
   } catch (error: any) {
     console.error('PATCH /api/approvals error:', error)

@@ -28,8 +28,16 @@ export async function PUT(
 
     const currentGroup = rows[0]
 
-    // 🔒 2. ตรวจสอบสิทธิ์การแก้ไข (ถ้าเป็นนักเรียน ต้องเป็นคนที่สร้างกลุ่มเท่านั้น และอาจารย์แก้ไขได้เสมอ)
-    if (requesterRole !== 'teacher' && currentGroup.created_by !== requesterStudentId) {
+    // 🟢 แปลงค่าทั้งสองฝั่งเป็น String เพื่อป้องกันปัญหา Type mismatch (Number vs String)
+    const dbOwnerId = String(currentGroup.created_by || '').trim()
+    const currentRequesterId = String(requesterStudentId || '').trim()
+
+    // 🔒 2. ตรวจสอบสิทธิ์การแก้ไข
+    // อนุญาตถ้า: เป็น teacher OR ID ตรงกัน OR กลุ่มไม่มีผู้สร้างเดิม
+    const isOwner = dbOwnerId !== '' && dbOwnerId === currentRequesterId
+    const isTeacher = requesterRole === 'teacher'
+
+    if (!isTeacher && !isOwner) {
       return NextResponse.json(
         { success: false, error: '⛔ คุณไม่มีสิทธิ์แก้ไขกลุ่มนี้ (เฉพาะผู้สร้างกลุ่มเท่านั้น)' },
         { status: 403 }
@@ -37,7 +45,7 @@ export async function PUT(
     }
 
     // 🔒 3. ป้องกันการแก้ไขถ้ากลุ่มถูกอนุมัติไปแล้ว (เว้นแต่อาจารย์เป็นคนแก้)
-    if (requesterRole !== 'teacher' && currentGroup.status === 'approved') {
+    if (!isTeacher && currentGroup.status === 'approved') {
       return NextResponse.json(
         { success: false, error: '⛔ ไม่สามารถแก้ไขกลุ่มที่ได้รับการอนุมัติแล้วได้' },
         { status: 400 }
@@ -93,7 +101,7 @@ export async function PUT(
       { status: 500 }
     )
   } finally {
-    connection.release()
+    connection.release() // คืน connection กลับสู่ pool
   }
 }
 
@@ -106,7 +114,6 @@ export async function DELETE(
   try {
     const { id: groupId } = await params
 
-    // รับ requesterStudentId และ requesterRole ผ่าน Query Parameters เช่น /api/groups/123?studentId=65001&role=student
     const { searchParams } = new URL(request.url)
     const requesterStudentId = searchParams.get('studentId')
     const requesterRole = searchParams.get('role')
@@ -127,16 +134,23 @@ export async function DELETE(
 
     const currentGroup = rows[0]
 
-    // 🔒 2. ตรวจสอบสิทธิ์การลบ (ถ้าเป็นนักเรียน ต้องเป็นคนสร้างกลุ่มเท่านั้น)
-    if (requesterRole !== 'teacher' && currentGroup.created_by !== requesterStudentId) {
+    // 🟢 แปลงค่าเป็น String ก่อนเปรียบเทียบ
+    const dbOwnerId = String(currentGroup.created_by || '').trim()
+    const currentRequesterId = String(requesterStudentId || '').trim()
+
+    const isOwner = dbOwnerId !== '' && dbOwnerId === currentRequesterId
+    const isTeacher = requesterRole === 'teacher'
+
+    // 🔒 2. ตรวจสอบสิทธิ์การลบ
+    if (!isTeacher && !isOwner) {
       return NextResponse.json(
         { success: false, error: '⛔ คุณไม่มีสิทธิ์ลบกลุ่มนี้ (เฉพาะผู้สร้างกลุ่มเท่านั้น)' },
         { status: 403 }
       )
     }
 
-    // 🔒 3. ป้องกันการลบถ้ากลุ่มอนุมัติไปแล้ว (เว้นแต่อาจารย์สั่งลบ)
-    if (requesterRole !== 'teacher' && currentGroup.status === 'approved') {
+    // 🔒 3. ป้องกันการลบถ้ากลุ่มอนุมัติไปแล้ว (เว้นแต่างอาจารย์สั่งลบ)
+    if (!isTeacher && currentGroup.status === 'approved') {
       return NextResponse.json(
         { success: false, error: '⛔ ไม่สามารถลบกลุ่มที่ได้รับการอนุมัติแล้วได้' },
         { status: 400 }
@@ -146,7 +160,7 @@ export async function DELETE(
     // เริ่ม Transaction
     await connection.beginTransaction()
 
-    // 1. เคลียร์ group_id ในตาราง users ของนักเรียนทุกคนที่เคยอยู่ในกลุ่มนี้
+    // 1. เคลียร์ group_id ในตาราง users
     await connection.query('UPDATE users SET group_id = NULL WHERE group_id = ?', [groupId])
 
     // 2. ลบสมาชิกออกจากตาราง group_members

@@ -37,7 +37,6 @@ export default function NewStudentPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔒 เช็กสิทธิ์ล็อกอิน และดึงข้อมูลกลุ่มทั้งหมดเมื่อเปิดหน้าเว็บ
   useEffect(() => {
     const userStr = localStorage.getItem("user");
     if (!userStr) {
@@ -85,7 +84,6 @@ export default function NewStudentPage() {
 
   const handleOpenCreateModal = () => {
     resetForm();
-    // เพิ่มตัวผู้สร้างลงในรายชื่อสมาชิกอัตโนมัติ (เฉพาะถ้าเป็นนักเรียน)
     if (currentUser && currentUser.role !== "teacher") {
       const myCode = currentUser.student_code || currentUser.studentId || "";
       const myName = currentUser.name || currentUser.fullname || "";
@@ -129,7 +127,6 @@ export default function NewStudentPage() {
     setMembers(members.filter((_, i) => i !== index));
   };
 
-  // 🔄 ย้อนกลับตาม Role ของผู้ใช้งาน
   const handleGoBack = () => {
     if (currentUser?.role === "teacher") {
       router.push("/");
@@ -138,7 +135,7 @@ export default function NewStudentPage() {
     }
   };
 
-  // 💾 บันทึกข้อมูลกลุ่มลง MySQL
+  // 💾 บันทึกข้อมูลกลุ่ม
   const handleSaveGroup = async () => {
     if (!groupName.trim()) {
       alert("กรุณากรอกชื่อกลุ่ม");
@@ -161,7 +158,8 @@ export default function NewStudentPage() {
       return;
     }
 
-    const createdBy = currentUser.student_code || currentUser.studentId || currentUser.id;
+    // 🟢 ดึง ID ของผู้สร้างแบบครอบคลุมทั้ง id และ student_code
+    const createdBy = currentUser.id || currentUser.student_code || currentUser.studentId;
 
     const payload = {
       className,
@@ -187,7 +185,6 @@ export default function NewStudentPage() {
           return;
         }
 
-        // อัปเดตข้อมูลผู้ใช้เฉพาะกรณีที่เป็นนักเรียน
         if (currentUser.role !== "teacher") {
           const updatedUser = {
             ...currentUser,
@@ -227,8 +224,6 @@ export default function NewStudentPage() {
       }
 
       handleCloseModal();
-      
-      // นำทางกลับตาม Role
       handleGoBack();
     } catch (error) {
       console.error("Error saving group:", error);
@@ -236,12 +231,11 @@ export default function NewStudentPage() {
     }
   };
 
-  // 🗑️ ลบกลุ่ม
   const handleDeleteGroup = async (id?: number) => {
     if (!id) return;
     if (confirm("คุณต้องการลบกลุ่มนี้ใช่หรือไม่? ข้อมูลสมาชิกจะถูกลบออกไปด้วย")) {
       try {
-        const studentCodeParam = currentUser?.student_code || currentUser?.studentId || currentUser?.id || "";
+        const studentCodeParam = currentUser?.id || currentUser?.student_code || currentUser?.studentId || "";
         const roleParam = currentUser?.role || "student";
 
         const res = await fetch(
@@ -261,6 +255,24 @@ export default function NewStudentPage() {
         alert("เกิดข้อผิดพลาดในการลบข้อมูล");
       }
     }
+  };
+
+  // 🔍 ฟังก์ชันเช็กว่าผู้ใช้ปัจจุบันเป็นเจ้าของกลุ่มนี้หรือไม่
+  const isGroupOwner = (group: Group) => {
+    if (!currentUser) return false;
+    if (currentUser.role === "teacher") return true; // อาจารย์แก้ได้ทุกกลุ่ม
+
+    const myId = String(currentUser.id || "").trim();
+    const myCode = String(currentUser.student_code || currentUser.studentId || "").trim();
+    const ownerId = String(group.created_by || "").trim();
+
+    // เช็กว่าตรงกับ created_by หรือมีรายชื่อเป็นสมาชิกในกลุ่มหรือไม่
+    const isCreator = ownerId === myId || ownerId === myCode;
+    const isMember = group.members?.some(
+      (m) => String(m.studentId).trim() === myCode
+    );
+
+    return isCreator || isMember;
   };
 
   return (
@@ -285,7 +297,6 @@ export default function NewStudentPage() {
           </div>
 
           <div className="flex gap-3">
-            {/* 🟢 ปุ่มย้อนกลับยืดหยุ่นตามสิทธิ์ผู้ใช้งาน (อาจารย์ / นักเรียน) */}
             <button
               onClick={handleGoBack}
               className="flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/40 px-4 py-2 font-medium text-slate-300 transition hover:bg-slate-800"
@@ -318,65 +329,78 @@ export default function NewStudentPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {groups.map((group) => (
-              <div
-                key={group.id}
-                className="flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl transition hover:border-slate-700"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-100">
-                      {group.groupName}
-                    </h3>
-                    <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-0.5 text-xs font-mono text-cyan-300">
-                      {group.className}
-                    </span>
-                  </div>
+            {groups.map((group) => {
+              const canEdit = isGroupOwner(group);
 
-                  <p className="mt-2 text-sm text-slate-400">
-                    <span className="font-semibold text-slate-300">โครงงาน :</span>{" "}
-                    {group.projectName}
-                  </p>
+              return (
+                <div
+                  key={group.id}
+                  className="flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl transition hover:border-slate-700"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-slate-100">
+                        {group.groupName}
+                      </h3>
+                      <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-0.5 text-xs font-mono text-cyan-300">
+                        {group.className}
+                      </span>
+                    </div>
 
-                  <div className="mt-4 rounded-xl border border-slate-800/60 bg-slate-950/40 p-3">
-                    <p className="text-xs font-mono uppercase tracking-wider text-slate-500">
-                      สมาชิก ({group.members ? group.members.length : 0} คน)
+                    <p className="mt-2 text-sm text-slate-400">
+                      <span className="font-semibold text-slate-300">โครงงาน :</span>{" "}
+                      {group.projectName}
                     </p>
-                    <ul className="mt-2 space-y-1 text-sm text-slate-300">
-                      {group.members && group.members.length > 0 ? (
-                        group.members.map((m, i) => (
-                          <li key={i} className="flex justify-between">
-                            <span>{m.fullname}</span>
-                            <span className="font-mono text-xs text-slate-500">
-                              {m.studentId}
-                            </span>
+
+                    <div className="mt-4 rounded-xl border border-slate-800/60 bg-slate-950/40 p-3">
+                      <p className="text-xs font-mono uppercase tracking-wider text-slate-500">
+                        สมาชิก ({group.members ? group.members.length : 0} คน)
+                      </p>
+                      <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                        {group.members && group.members.length > 0 ? (
+                          group.members.map((m, i) => (
+                            <li key={i} className="flex justify-between">
+                              <span>{m.fullname}</span>
+                              <span className="font-mono text-xs text-slate-500">
+                                {m.studentId}
+                              </span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="font-mono text-xs text-slate-600">
+                            ไม่มีสมาชิก
                           </li>
-                        ))
-                      ) : (
-                        <li className="font-mono text-xs text-slate-600">
-                          ไม่มีสมาชิก
-                        </li>
-                      )}
-                    </ul>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Actions (แสดงปุ่มเฉพาะกรณีที่เป็นเจ้าของกลุ่มหรืออาจารย์) */}
+                  <div className="mt-5 flex gap-3 border-t border-slate-800/60 pt-4">
+                    {canEdit ? (
+                      <>
+                        <button
+                          onClick={() => handleOpenEditModal(group)}
+                          className="flex-1 rounded-xl border border-amber-400/30 bg-amber-400/10 py-2 text-sm font-medium text-amber-300 hover:bg-amber-400/20"
+                        >
+                          ✏️ แก้ไข / เพิ่มสมาชิก
+                        </button>
+                        <button
+                          onClick={() => handleDeleteGroup(group.id)}
+                          className="flex-1 rounded-xl border border-rose-400/30 bg-rose-400/10 py-2 text-sm font-medium text-rose-300 hover:bg-rose-400/20"
+                        >
+                          🗑️ ลบกลุ่ม
+                        </button>
+                      </>
+                    ) : (
+                      <span className="w-full text-center text-xs font-mono text-slate-600 py-1">
+                        🔒 ดูได้อย่างเดียว (ไม่ใช่เจ้าของกลุ่ม)
+                      </span>
+                    )}
                   </div>
                 </div>
-
-                <div className="mt-5 flex gap-3 border-t border-slate-800/60 pt-4">
-                  <button
-                    onClick={() => handleOpenEditModal(group)}
-                    className="flex-1 rounded-xl border border-amber-400/30 bg-amber-400/10 py-2 text-sm font-medium text-amber-300 hover:bg-amber-400/20"
-                  >
-                    ✏️ แก้ไข
-                  </button>
-                  <button
-                    onClick={() => handleDeleteGroup(group.id)}
-                    className="flex-1 rounded-xl border border-rose-400/30 bg-rose-400/10 py-2 text-sm font-medium text-rose-300 hover:bg-rose-400/20"
-                  >
-                    🗑️ ลบกลุ่ม
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

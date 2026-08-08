@@ -20,11 +20,10 @@ export default function StudentPage() {
   const [student, setStudent] = useState<StudentData | null>(null)
   const [progress, setProgress] = useState('25')
   const [description, setDescription] = useState('')
-  const [file, setFile] = useState<File | null>(null) // 📁 State สำหรับเก็บไฟล์แนบ
+  const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
 
-  // ดึงข้อมูลนักเรียน
   const fetchStudentData = async (studentCode: string) => {
     try {
       const res = await fetch(`/api/student?student_code=${studentCode}`)
@@ -61,7 +60,6 @@ export default function StudentPage() {
     }
   }
 
-  // 🟢 ปรับปรุง useEffect ตรวจเช็ก Auth ให้ใช้ replace และครอบ try-catch กัน crash เวลา Back กลับมา
   useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (!userStr) {
@@ -72,7 +70,6 @@ export default function StudentPage() {
     try {
       const user = JSON.parse(userStr)
 
-      // ตรวจสอบข้อมูลผู้ใช้เบื้องต้น
       if (!user.student_code && !user.studentCode && user.role !== 'student') {
         router.replace('/login')
         return
@@ -90,29 +87,18 @@ export default function StudentPage() {
     }
   }, [router])
 
-  // ฟังก์ชันส่งรายงานความคืบหน้า (รองรับทั้ง Text และ File)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!student) return
 
-    // เช็กสถานะ ต้องเป็น approved เท่านั้น
-    if (student.status !== 'approved') {
-      alert(
-        'โครงงานของคุณต้องได้รับการอนุมัติจากอาจารย์ก่อน จึงจะสามารถส่งความคืบหน้าได้'
-      )
-      return
-    }
-
     setSubmitting(true)
     try {
-      // ใช้ FormData สำหรับส่งไฟล์
       const formData = new FormData()
       formData.append('student_code', student.student_code)
       formData.append('groupName', student.group_name)
       formData.append('progress', progress)
       formData.append('description', description)
       
-      // แนบไฟล์เข้าไปด้วยหากมีการเลือกไฟล์
       if (file) {
         formData.append('file', file)
       }
@@ -136,7 +122,6 @@ export default function StudentPage() {
           }
         }
 
-        // ล้างค่าฟอร์ม
         setDescription('')
         setFile(null)
         setProgress('25')
@@ -166,7 +151,8 @@ export default function StudentPage() {
 
   if (!student) return null
 
-  const isApproved = student.status === 'approved'
+  // 🟢 ปรับเงื่อนไขการปลดล็อก: ยอมให้ส่งงานได้ถ้าผ่าน (approved) หรือถูกสั่งให้แก้ไข (rejected) หรือกำลังรอตรวจ (pending)
+  const canSubmit = student.status === 'approved' || student.status === 'rejected' || student.status === 'pending'
 
   return (
     <main
@@ -190,14 +176,6 @@ export default function StudentPage() {
           </div>
 
           <div className="flex gap-2">
-            {/* 🟢 ปุ่มกลับหน้าหลัก */}
-            <button
-              onClick={() => router.push('/')}
-              className="rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-700 hover:text-white"
-            >
-              🏠 หน้าหลัก
-            </button>
-
             <button
               onClick={() => router.push('/newstudent')}
               className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 font-medium text-cyan-300 transition hover:bg-cyan-400/20 text-xs"
@@ -232,27 +210,24 @@ export default function StudentPage() {
 
         {student.status === 'pending' && (
           <div className="rounded-2xl border border-sky-500/40 bg-sky-500/10 p-5 text-sky-200 backdrop-blur-xl">
-            <h3 className="font-bold flex items-center gap-2">⏳ โครงงานอยู่ระหว่างรออาจารย์อนุมัติ</h3>
+            <h3 className="font-bold flex items-center gap-2">⏳ โครงงานอยู่ระหว่างรออาจารย์ตรวจสอบ</h3>
             <p className="mt-1 text-xs text-sky-300/80">
-              เมื่ออาจารย์อนุมัติหัวข้อโครงงานแล้ว ระบบจะปลดล็อกฟอร์มส่งรายงานความคืบหน้าให้โดยอัตโนมัติ
+              คุณสามารถส่งรายงานความคืบหน้าเพิ่มเติม หรือแก้ไขข้อมูลได้
             </p>
           </div>
         )}
 
         {student.status === 'rejected' && (
           <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5 text-rose-200 backdrop-blur-xl">
-            <h3 className="font-bold flex items-center gap-2">❌ โครงงานไม่ผ่านการอนุมัติ / ให้แก้ไข</h3>
+            <h3 className="font-bold flex items-center gap-2">❌ โครงงานต้องแก้ไข</h3>
             {student.comment && (
               <div className="mt-2 rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300 font-mono">
                 💬 ข้อเสนอแนะจากอาจารย์: "{student.comment}"
               </div>
             )}
-            <button
-              onClick={() => router.push('/newstudent')}
-              className="mt-3 rounded-xl border border-rose-400/40 bg-rose-400/20 px-4 py-1.5 text-xs font-semibold text-rose-200 hover:bg-rose-400/30"
-            >
-              ✏️ แก้ไขข้อมูลกลุ่มโครงงาน
-            </button>
+            <p className="mt-2 text-xs text-rose-300/80">
+              ฟอร์มส่งงานเปิดให้คุณแก้ไขและส่งงานใหม่ได้แล้วด้านล่างนี้
+            </p>
           </div>
         )}
 
@@ -312,7 +287,7 @@ export default function StudentPage() {
               <span className="text-xs font-mono text-slate-400">สถานะอนุมัติ:</span>
               <span
                 className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${
-                  isApproved
+                  student.status === 'approved'
                     ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
                     : student.status === 'rejected'
                     ? 'border-rose-400/30 bg-rose-400/10 text-rose-300'
@@ -325,20 +300,20 @@ export default function StudentPage() {
           </div>
         </div>
 
-        {/* Submit Form (เปิดให้ส่งเมื่อ status === 'approved') */}
+        {/* Submit Form (ปลดล็อกให้ส่งเมื่อ canSubmit เป็น true) */}
         <form
           onSubmit={handleSubmit}
           className={`space-y-5 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl transition ${
-            !isApproved ? 'opacity-50 pointer-events-none' : ''
+            !canSubmit ? 'opacity-50 pointer-events-none' : ''
           }`}
         >
           <div className="flex items-center justify-between border-b border-slate-800 pb-2">
             <h2 className="text-lg font-semibold text-cyan-300 font-mono">
               🚀 ส่งความคืบหน้าใหม่
             </h2>
-            {!isApproved && (
+            {!canSubmit && (
               <span className="text-xs text-rose-400 font-mono">
-                🔒 ปลดล็อกเมื่อโครงงานได้รับการอนุมัติ
+                🔒 ฟอร์มถูกล็อก
               </span>
             )}
           </div>
@@ -353,7 +328,7 @@ export default function StudentPage() {
                 <button
                   key={p}
                   type="button"
-                  disabled={!isApproved}
+                  disabled={!canSubmit}
                   onClick={() => setProgress(p)}
                   className={`rounded-xl border py-3 font-mono font-semibold transition ${
                     progress === p
@@ -375,7 +350,7 @@ export default function StudentPage() {
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              disabled={!isApproved}
+              disabled={!canSubmit}
               rows={4}
               required
               placeholder="อธิบายหัวข้อ หรืองานที่ทำเสร็จแล้วในรอบนี้..."
@@ -390,7 +365,7 @@ export default function StudentPage() {
             </label>
             <input
               type="file"
-              disabled={!isApproved}
+              disabled={!canSubmit}
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="w-full text-xs text-slate-400 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-500/10 file:px-4 file:py-2.5 file:text-xs file:font-semibold file:text-cyan-300 hover:file:bg-cyan-500/20 cursor-pointer rounded-xl border border-slate-800 bg-slate-950/60 p-2"
             />
@@ -403,7 +378,7 @@ export default function StudentPage() {
 
           <button
             type="submit"
-            disabled={submitting || !isApproved}
+            disabled={submitting || !canSubmit}
             className="w-full rounded-xl border border-cyan-400/30 bg-cyan-400/10 py-3.5 font-semibold text-cyan-300 shadow-[0_0_20px_-6px_rgba(34,211,238,0.5)] transition hover:bg-cyan-400/20 disabled:opacity-50"
           >
             {submitting ? 'กำลังส่งข้อมูล...' : '✨ ยืนยันการส่งความคืบหน้า'}
