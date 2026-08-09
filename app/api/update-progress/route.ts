@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
+import { supabase } from '@/lib/supabase'
 
 export async function POST(request: Request) {
-  const connection = await db.getConnection()
   try {
     const formData = await request.formData()
 
@@ -21,20 +18,26 @@ export async function POST(request: Request) {
       )
     }
 
-    // 1. ค้นหากลุ่มของนักเรียน
-    const [userRows]: any = await connection.query(
-      'SELECT group_id FROM users WHERE student_code = ?',
-      [studentCode]
-    )
+    // 1. ค้นหากลุ่มของนักเรียนจากตาราง users
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('group_id')
+      .eq('student_code', studentCode)
+      .single()
 
-    let groupId = userRows[0]?.group_id
+    let groupId = userData?.group_id
 
+    // ถ้าไม่พบ group_id จาก users แต่มี groupName ส่งมา ให้ลองหาจากตาราง groups
     if (!groupId && groupName) {
-      const [groupRows]: any = await connection.query(
-        'SELECT id FROM `groups` WHERE name = ? OR group_name = ?',
-        [groupName, groupName]
-      )
-      groupId = groupRows[0]?.id
+      const { data: groupData } = await supabase
+        .from('groups')
+        .select('id')
+        .or(`name.eq.${groupName},group_name.eq.${groupName}`)
+        .limit(1)
+
+      if (groupData && groupData.length > 0) {
+        groupId = groupData[0].id
+      }
     }
 
     if (!groupId) {
@@ -44,71 +47,79 @@ export async function POST(request: Request) {
       )
     }
 
-    // 2. จัดการอัปโหลดไฟล์ (ถ้ามี)
+    // 2. จัดการอัปโหลดไฟล์ไปที่ Supabase Storage (แนะนำให้สร้าง Bucket ชื่อ 'uploads' ไว้ล่วงหน้าใน Supabase)
     let filePath = null
     if (file && file.size > 0) {
-      const bytes = await file.arrayBuffer()
-      const buffer = Buffer.from(bytes)
-
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-      try {
-        await mkdir(uploadDir, { recursive: true })
-      } catch (e) {
-        // Folder already exists
-      }
-
+      const arrayBuffer = await file.arrayBuffer()
       const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-      filePath = `/uploads/${fileName}`
+      
+      // อัปโหลดไฟล์ขึ้น Supabase Storage (Bucket ชื่อ 'uploads')
+      const { error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(fileName, arrayBuffer, {
+          contentType: file.type,
+          upsert: false,
+        })
 
-      await writeFile(path.join(uploadDir, fileName), buffer)
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError)
+        // ถ้าไม่ใช้ Supabase Storage แต่จะเก็บแบบ Local เหมือนเดิม คุณสามารถคงโค้ด writeFile แบบเดิมไว้ได้ครับ
+      } else {
+        // ดึง Public URL ของไฟล์ที่อัปโหลด
+        const { data: publicUrlData } = supabase.storage
+          .from('uploads')
+          .getPublicUrl(fileName)
+        
+        filePath = publicUrlData.publicUrl
+      }
     }
 
-    await connection.beginTransaction()
+    // 3. ดึงข้อมูล file_url เดิมของกลุ่มมาเผื่อกรณีไม่ได้อัปโหลดไฟล์ใหม่
+    const { data: currentGroup } = await supabase
+      .from('groups')
+      .select('file_url')
+      .eq('id', groupId)
+      .single()
 
-    // 🟢 3. อัปเดตตาราง groups: 
-    // เปลี่ยน status กลับมาเป็น 'pending' เพื่อให้ขึ้นในแท็บรอตรวจของอาจารย์
-    // บันทึก progress, description และ file_url
-    await connection.query(
-      `UPDATE \`groups\` 
-       SET progress = ?, 
-           status = 'pending', 
-           comment = ?, 
-           file_url = COALESCE(?, file_url) 
-       WHERE id = ?`,
-      [
-        Number(progress) || 0,
-        description ? `[รายงานความคืบหน้า ${progress}%]: ${description}` : null,
-        filePath,
-        groupId,
-      ]
-    )
+    const finalFileUrl = filePath || currentGroup?.file_url || null
 
-    // 4. บันทึกลงตารางประวัติรายงานความคืบหน้า (ถ้ามี)
+    // 4. อัปเดตตาราง groups
+    const { error: updateError } = await supabase
+      .from('groups')
+      .update({
+        progress: Number(progress) || 0,
+        status: 'pending', // เปลี่ยนสถานะกลับเป็น pending เพื่อให้อาจารย์ตรวจใหม่
+        comment: description ? `[รายงานความคืบหน้า ${progress}%]: ${description}` : null,
+        file_url: finalFileUrl,
+      })
+      .eq('id', groupId)
+
+    if (updateError) throw updateError
+
+    // 5. บันทึกลงตารางประวัติรายงานความคืบหน้า (progress_reports) ถ้ามีตารางนี้ในฐานข้อมูล
     try {
-      await connection.query(
-        `INSERT INTO progress_reports 
-         (group_id, student_code, progress, description, file_path, created_at) 
-         VALUES (?, ?, ?, ?, ?, NOW())`,
-        [groupId, studentCode, Number(progress) || 0, description || '', filePath]
-      )
+      await supabase.from('progress_reports').insert([
+        {
+          group_id: groupId,
+          student_code: studentCode,
+          progress: Number(progress) || 0,
+          description: description || '',
+          file_path: finalFileUrl,
+        },
+      ])
     } catch (e) {
-      // ข้ามกรณีไม่มีตาราง progress_reports
+      // ข้ามกรณีไม่มีตาราง progress_reports ใน Supabase
     }
-
-    await connection.commit()
 
     return NextResponse.json({
       success: true,
       message: 'ส่งรายงานความคืบหน้าเรียบร้อยแล้ว รออาจารย์อนุมัติ',
     })
   } catch (error: any) {
-    await connection.rollback()
     console.error('Error in /api/update-progress:', error)
     return NextResponse.json(
       { success: false, error: error.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล' },
       { status: 500 }
     )
-  } finally {
-    connection.release()
   }
 }

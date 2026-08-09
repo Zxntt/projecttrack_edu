@@ -1,37 +1,40 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    // รับได้ทั้ง email, student_code หรือ identifier ทั่วไปจาก Frontend
     const { email, student_code, identifier, password } = body
-
     const userIdentifier = (identifier || email || student_code || '').trim()
 
     if (!userIdentifier || !password) {
       return NextResponse.json(
-        { success: false, error: 'กรุณากรอกรหัสนักศึกษา/อีเมล และรหัสผ่าน' },
+        { success: false, error: 'กรุณากรอกข้อมูลให้ครบถ้วน' },
         { status: 400 }
       )
     }
 
-    // ค้นหาผู้ใช้ตาม email หรือ student_code
-    const [rows]: any = await db.query(
-      'SELECT id, name, student_code, email, password, role, group_id FROM users WHERE email = ? OR student_code = ?',
-      [userIdentifier, userIdentifier]
-    )
+    // 1. ค้นหาผู้ใช้โดยใช้ .or() แบบปลอดภัย
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, name, student_code, email, password, role, group_id')
+      .or(`email.eq.${userIdentifier},student_code.eq.${userIdentifier}`)
 
-    if (rows.length === 0) {
+    if (error) {
+      console.error('Supabase Query Error:', error)
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+
+    if (!users || users.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'ไม่พบผู้ใช้นี้ในระบบ' },
+        { success: false, error: 'ไม่พบชื่อผู้ใช้งานนี้' },
         { status: 401 }
       )
     }
 
-    const user = rows[0]
+    const user = users[0]
 
-    // ตรวจสอบรหัสผ่าน
+    // 2. ตรวจสอบรหัสผ่าน
     if (user.password !== password) {
       return NextResponse.json(
         { success: false, error: 'รหัสผ่านไม่ถูกต้อง' },
@@ -39,7 +42,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // ส่งเฉพาะข้อมูลผู้ใช้งานกลับไป (ไม่ส่ง password กลับ)
+    // 3. ส่งข้อมูลกลับ
     return NextResponse.json({
       success: true,
       message: 'เข้าสู่ระบบสำเร็จ',
@@ -53,10 +56,9 @@ export async function POST(req: Request) {
       },
     })
   } catch (error: any) {
-    console.error('Login error:', error)
-
+    console.error('Critical Login Error:', error)
     return NextResponse.json(
-      { success: false, error: 'เกิดข้อผิดพลาดที่เซิร์ฟเวอร์: ' + error.message },
+      { success: false, error: error.message || 'ระบบขัดข้อง' },
       { status: 500 }
     )
   }

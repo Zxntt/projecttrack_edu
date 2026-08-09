@@ -1,13 +1,24 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 // ดึงผู้ใช้ทั้งหมด
 export async function GET() {
-  const [rows] = await db.query(
-    'SELECT * FROM users ORDER BY id DESC'
-  )
+  try {
+    const { data: rows, error } = await supabase
+      .from('users')
+      .select('*')
+      .order('id', { ascending: false })
 
-  return NextResponse.json(rows)
+    if (error) throw error
+
+    return NextResponse.json(rows || [])
+  } catch (error) {
+    console.error(error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch users' },
+      { status: 500 }
+    )
+  }
 }
 
 // เพิ่มผู้ใช้
@@ -24,19 +35,20 @@ export async function POST(req: Request) {
       group_id,
     } = body
 
-    await db.query(
-      `INSERT INTO users
-      (student_code, name, email, password, role, group_id)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        student_code,
-        name,
-        email,
-        password,
-        role,
-        group_id || null,
-      ]
-    )
+    const { error } = await supabase
+      .from('users')
+      .insert([
+        {
+          student_code: student_code || null,
+          name,
+          email: email || null,
+          password,
+          role,
+          group_id: group_id || null,
+        },
+      ])
+
+    if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -63,19 +75,25 @@ export async function PUT(req: Request) {
       group_id,
     } = body
 
-    await db.query(
-      `UPDATE users
-       SET student_code = ?, name = ?, email = ?, role = ?, group_id = ?
-       WHERE id = ?`,
-      [
-        student_code,
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Missing user ID' },
+        { status: 400 }
+      )
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .update({
+        student_code: student_code || null,
         name,
-        email,
+        email: email || null,
         role,
-        group_id || null,
-        id,
-      ]
-    )
+        group_id: group_id || null,
+      })
+      .eq('id', id)
+
+    if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -94,9 +112,19 @@ export async function DELETE(req: Request) {
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
 
-    await db.query('DELETE FROM users WHERE id = ?', [
-      id,
-    ])
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'Missing user ID' },
+        { status: 400 }
+      )
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
 
     return NextResponse.json({ success: true })
   } catch (error) {

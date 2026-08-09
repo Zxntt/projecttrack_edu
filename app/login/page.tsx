@@ -7,7 +7,6 @@ import Link from 'next/link'
 export default function LoginPage() {
   const router = useRouter()
 
-  // เปลี่ยนชื่อ state ให้ชัดเจนขึ้นว่ารับได้ทั้ง email หรือ student_code
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,15 +21,21 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        // ส่งค่า identifier ไปเป็น email หรือ student_code
+        // ปรับให้ส่ง identifier ไปตรงกับที่ API คาดหวัง
         body: JSON.stringify({
-          email: identifier,
-          student_code: identifier,
+          identifier,
           password,
         }),
       })
 
-      const data = await res.json()
+      // ป้องกัน Error Unexpected end of JSON ด้วยการอ่านเป็น Text ก่อนแปลง
+      const responseText = await res.text()
+      const data = responseText ? JSON.parse(responseText) : {}
+
+      if (!res.ok) {
+        alert(data.error || data.message || 'อีเมล / รหัสนักศึกษา หรือรหัสผ่านไม่ถูกต้อง')
+        return
+      }
 
       if (data.success && data.user) {
         // บันทึกข้อมูลผู้ใช้ลง localStorage
@@ -43,7 +48,7 @@ export default function LoginPage() {
           router.push('/student')
         }
       } else {
-        alert(data.message || 'อีเมล / รหัสนักศึกษา หรือรหัสผ่านไม่ถูกต้อง')
+        alert(data.error || data.message || 'อีเมล / รหัสนักศึกษา หรือรหัสผ่านไม่ถูกต้อง')
       }
     } catch (error) {
       console.error(error)
@@ -80,7 +85,7 @@ export default function LoginPage() {
               อีเมล หรือ รหัสนักศึกษา
             </label>
             <input
-              type="text" // เปลี่ยนเป็น text เพื่อรับได้ทั้งข้อความและตัวเลขรหัสนักศึกษา
+              type="text"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required

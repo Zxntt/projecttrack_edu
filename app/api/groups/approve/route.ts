@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 export async function PUT(req: Request) {
   try {
@@ -13,11 +13,16 @@ export async function PUT(req: Request) {
       )
     }
 
-    // อัปเดตสถานะในตาราง groups (อนุมัติแล้ว / ไม่อนุมัติ)
-    await db.query(
-      `UPDATE \`groups\` SET status = ?, reject_reason = ? WHERE id = ?`,
-      [status, rejectReason || null, groupId]
-    )
+    // อัปเดตสถานะในตาราง groups (อนุมัติแล้ว / ไม่อนุมัติ) ด้วย Supabase
+    const { error } = await supabase
+      .from('groups')
+      .update({
+        status: status,
+        reject_reason: rejectReason || null,
+      })
+      .eq('id', groupId)
+
+    if (error) throw error
 
     return NextResponse.json({
       success: true,
@@ -26,7 +31,7 @@ export async function PUT(req: Request) {
   } catch (error: any) {
     console.error('Approve Error:', error)
     return NextResponse.json(
-      { success: false, message: 'เกิดข้อผิดพลาดในการอนุมัติโครงงาน' },
+      { success: false, message: 'เกิดข้อผิดพลาดในการอนุมัติโครงงาน: ' + error.message },
       { status: 500 }
     )
   }

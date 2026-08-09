@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 // 🟢 ปิด Cache ป้องกัน Next.js จำผลลัพธ์เก่า
 export const dynamic = 'force-dynamic'
@@ -13,42 +13,48 @@ export async function GET(request: Request) {
     // ถ้านักเรียน/อาจารย์ไม่ได้ส่ง status มา ให้ default เป็น 'pending'
     const statusFilter = (rawStatus || 'pending').trim().toLowerCase()
 
-    let query = 'SELECT * FROM `groups` ORDER BY id DESC'
-    let queryParams: any[] = []
+    // 🟢 สร้าง Query หลักสำหรับ Supabase ตาราง groups
+    let query = supabase.from('groups').select('*').order('id', { ascending: false })
 
     if (statusFilter === 'pending') {
-      // 🟢 กวาดกลุ่มที่เป็น 'pending', 'รอตรวจ', 'รออนุมัติ', NULL หรือค่าว่าง ทั้งหมด
-      query = `SELECT * FROM \`groups\` 
-               WHERE LOWER(TRIM(status)) = 'pending' 
-                  OR status = 'รอตรวจ' 
-                  OR status = 'รออนุมัติ' 
-                  OR status IS NULL 
-                  OR TRIM(status) = '' 
-               ORDER BY id DESC`
+      // กวาดกลุ่มที่เป็น 'pending', 'รอตรวจ', 'รออนุมัติ', NULL หรือค่าว่าง ทั้งหมด
+      query = query.or("status.ilike.pending,status.eq.รอตรวจ,status.eq.รออนุมัติ,status.is.null,status.eq.''")
     } else if (statusFilter !== 'all') {
-      query = 'SELECT * FROM `groups` WHERE LOWER(TRIM(status)) = ? ORDER BY id DESC'
-      queryParams = [statusFilter]
+      query = query.ilike('status', statusFilter)
     }
 
-    const [groups]: any = await db.query(query, queryParams)
+    const { data: groups, error: groupsError } = await query
+    if (groupsError) throw groupsError
 
     // ดึงรายชื่อสมาชิกของแต่ละกลุ่ม
     const groupsWithMembers = await Promise.all(
-      groups.map(async (group: any) => {
+      (groups || []).map(async (group: any) => {
         let members = []
         try {
-          const [memberRows]: any = await db.query(
-            'SELECT student_id as studentId, fullname FROM group_members WHERE group_id = ?',
-            [group.id]
-          )
-          members = memberRows || []
+          // 1. ลองดึงจากตาราง group_members ก่อน
+          const { data: memberRows, error: memberError } = await supabase
+            .from('group_members')
+            .select('student_id, fullname')
+            .eq('group_id', group.id)
 
-          if (members.length === 0) {
-            const [userMembers]: any = await db.query(
-              'SELECT student_code as studentId, name as fullname FROM users WHERE group_id = ?',
-              [group.id]
-            )
-            members = userMembers || []
+          if (!memberError && memberRows && memberRows.length > 0) {
+            members = memberRows.map((m: any) => ({
+              studentId: m.student_id,
+              fullname: m.fullname,
+            }))
+          } else {
+            // 2. ถ้าไม่พบ ให้ลองดึงจากตาราง users ที่มี group_id ตรงกัน
+            const { data: userMembers, error: userError } = await supabase
+              .from('users')
+              .select('student_code, name')
+              .eq('group_id', group.id)
+
+            if (!userError && userMembers) {
+              members = userMembers.map((u: any) => ({
+                studentId: u.student_code,
+                fullname: u.name,
+              }))
+            }
           }
         } catch (e) {
           console.error('Fetch members error:', e)
@@ -59,10 +65,10 @@ export async function GET(request: Request) {
           className: group.class_name || group.className || 'ปวส.2 สายตรง',
           groupName: group.name || group.groupName || `กลุ่มที่ ${group.id}`,
           projectName: group.project || group.project_name_th || group.projectName || 'ยังไม่ระบุหัวข้อ',
-          progress: Number(group.progress) || 0, // 🟢 ส่งเปอร์เซ็นต์ความคืบหน้าให้อาจารย์เห็น
+          progress: Number(group.progress) || 0, // ส่งเปอร์เซ็นต์ความคืบหน้าให้อาจารย์เห็น
           status: (group.status || 'pending').trim().toLowerCase(),
           comment: group.comment || '',
-          fileUrl: group.file_url || null, // 👈 ส่งลิงก์ไฟล์งานให้อาจารย์
+          fileUrl: group.file_url || null, // ส่งลิงก์ไฟล์งานให้อาจารย์
           createdAt: group.created_at,
           members: members,
         }
@@ -96,22 +102,18 @@ export async function PATCH(request: Request) {
     }
 
     const targetStatus = status.trim().toLowerCase()
+    const targetComment = comment?.trim() || null
 
-    try {
-      await db.query(
-        'UPDATE `groups` SET status = ?, comment = ? WHERE id = ?',
-        [targetStatus, comment?.trim() || null, groupId]
-      )
-    } catch (err: any) {
-      if (err.errno === 1054 || err.code === 'ER_BAD_FIELD_ERROR') {
-        await db.query(
-          'UPDATE `groups` SET status = ? WHERE id = ?',
-          [targetStatus, groupId]
-        )
-      } else {
-        throw err
-      }
-    }
+    // อัปเดตข้อมูลด้วย Supabase
+    const { error: updateError } = await supabase
+      .from('groups')
+      .update({
+        status: targetStatus,
+        comment: targetComment,
+      })
+      .eq('id', groupId)
+
+    if (updateError) throw updateError
 
     return NextResponse.json({
       success: true,

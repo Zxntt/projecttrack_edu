@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 export async function POST(request: Request) {
   try {
@@ -28,11 +28,14 @@ export async function POST(request: Request) {
 
     // 2. เช็กว่ารหัสนักศึกษาซ้ำหรือไม่ (เฉพาะกรณีมี student_code)
     if (studentCode) {
-      const [existingStudent]: any = await db.query(
-        'SELECT id FROM users WHERE student_code = ?',
-        [studentCode]
-      )
-      if (existingStudent.length > 0) {
+      const { data: existingStudent, error: studentError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('student_code', studentCode)
+
+      if (studentError) throw studentError
+
+      if (existingStudent && existingStudent.length > 0) {
         return NextResponse.json(
           { success: false, error: 'รหัสนักศึกษานี้มีอยู่ในระบบแล้ว' },
           { status: 400 }
@@ -41,11 +44,14 @@ export async function POST(request: Request) {
     }
 
     // 3. เช็กว่าอีเมลซ้ำหรือไม่
-    const [existingEmail]: any = await db.query(
-      'SELECT id FROM users WHERE email = ?',
-      [userEmail]
-    )
-    if (existingEmail.length > 0) {
+    const { data: existingEmail, error: emailError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', userEmail)
+
+    if (emailError) throw emailError
+
+    if (existingEmail && existingEmail.length > 0) {
       return NextResponse.json(
         { success: false, error: 'อีเมลนี้มีผู้ใช้งานแล้วในระบบ' },
         { status: 400 }
@@ -53,10 +59,20 @@ export async function POST(request: Request) {
     }
 
     // 4. บันทึกข้อมูลใหม่ลงตาราง users (กำหนดให้ group_id เป็น NULL ในตอนแรก)
-    await db.query(
-      'INSERT INTO users (student_code, name, email, password, role, group_id) VALUES (?, ?, ?, ?, ?, NULL)',
-      [studentCode, name.trim(), userEmail, password, role]
-    )
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert([
+        {
+          student_code: studentCode,
+          name: name.trim(),
+          email: userEmail,
+          password: password,
+          role: role,
+          group_id: null,
+        },
+      ])
+
+    if (insertError) throw insertError
 
     return NextResponse.json(
       { success: true, message: 'สมัครสมาชิกสำเร็จ' },

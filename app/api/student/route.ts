@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
+import { supabase } from '@/lib/supabase'
 
 export async function GET(req: Request) {
   try {
@@ -13,53 +13,43 @@ export async function GET(req: Request) {
       )
     }
 
-    // ดึงเฉพาะคอลัมน์หลักที่มีอยู่ชัวร์ๆ
-    const [rows]: any = await db.query(
-      `SELECT 
-        u.id AS user_id, 
-        u.student_code, 
-        u.name, 
-        u.email, 
-        u.role, 
-        u.group_id,
-        g.name AS group_name,
-        g.class_name,
-        g.project
-       FROM users u
-       LEFT JOIN \`groups\` g ON u.group_id = g.id
-       WHERE u.student_code = ?`,
-      [studentCode]
-    )
+    // 1. ดึงข้อมูลผู้ใช้ก่อน (ไม่ join เพราะฐานข้อมูลยังไม่มี Foreign Key ระหว่าง users.group_id กับ groups.id)
+    const { data: student, error: userError } = await supabase
+      .from('users')
+      .select('id, student_code, name, email, role, group_id')
+      .eq('student_code', studentCode)
+      .single()
 
-    if (!rows || rows.length === 0) {
+    if (userError || !student) {
       return NextResponse.json(
         { success: false, error: 'ไม่พบข้อมูลนักศึกษานี้ในระบบ' },
         { status: 404 }
       )
     }
 
-    const student = rows[0]
+    // 2. ถ้ามี group_id ให้ไปดึงข้อมูลกลุ่มแยกอีกรอบ
+    let groupInfo: any = null
+    if (student.group_id) {
+      const { data: groupData } = await supabase
+        .from('groups')
+        .select('name, class_name, project, status, comment')
+        .eq('id', student.group_id)
+        .single()
+
+      groupInfo = groupData
+    }
 
     // ตรวจสอบสถานะกลุ่ม
     let currentStatus = 'no_group'
     let displayStatus = 'ยังไม่มีกลุ่ม'
+    let groupStatus = ''
+    let groupComment = ''
 
-    if (student.group_id) {
-      // ดึงสถานะและ comment แบบแยกปลอดภัย เผื่อตารางไม่มีคอลัมน์
-      try {
-        const [groupCheck]: any = await db.query(
-          'SELECT status, comment FROM `groups` WHERE id = ?',
-          [student.group_id]
-        )
-        if (groupCheck && groupCheck.length > 0) {
-          student.group_status = groupCheck[0].status
-          student.group_comment = groupCheck[0].comment
-        }
-      } catch (e) {
-        // หากไม่มีคอลัมน์ status/comment ในกลุ่ม จะไม่ให้ระบบค้าง
-      }
+    if (student.group_id && groupInfo) {
+      groupStatus = groupInfo.status || 'pending'
+      groupComment = groupInfo.comment || ''
 
-      currentStatus = student.group_status || 'pending'
+      currentStatus = groupStatus
       if (currentStatus === 'approved' || currentStatus === 'approvals') {
         currentStatus = 'approved'
         displayStatus = '✅ อนุมัติแล้ว'
@@ -73,16 +63,16 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       data: {
-        userId: student.user_id,
+        userId: student.id,
         name: student.name,
         studentCode: student.student_code,
         groupId: student.group_id,
-        groupName: student.group_name || 'ยังไม่มีกลุ่ม',
-        className: student.class_name || 'ปวส.2 สายตรง',
-        project: student.project || 'ยังไม่ได้ระบุโครงงาน',
+        groupName: groupInfo?.name || 'ยังไม่มีกลุ่ม',
+        className: groupInfo?.class_name || 'ปวส.2 สายตรง',
+        project: groupInfo?.project || 'ยังไม่ได้ระบุโครงงาน',
         status: currentStatus,
         displayStatus: displayStatus,
-        comment: student.group_comment || '',
+        comment: groupComment,
         progress: 0,
       },
     })
