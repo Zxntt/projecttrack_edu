@@ -1,5 +1,6 @@
 import './globals.css'
 import { ProjectProvider } from './context/ProjectContext'
+import Navbar from './navbar/Navbar'
 
 export default function RootLayout({
   children,
@@ -9,7 +10,10 @@ export default function RootLayout({
   return (
     <html lang='th'>
       <body>
-        <ProjectProvider>{children}</ProjectProvider>
+        <ProjectProvider>
+          <Navbar />
+          {children}
+        </ProjectProvider>
       </body>
     </html>
   )

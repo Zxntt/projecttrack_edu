@@ -12,7 +12,11 @@ export default function Navbar() {
   useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (userStr) {
-      setUser(JSON.parse(userStr))
+      const parsed = JSON.parse(userStr)
+      if (parsed?.role) {
+        parsed.role = String(parsed.role).trim().toLowerCase()
+      }
+      setUser(parsed)
     }
   }, [pathname])
 
@@ -70,16 +74,28 @@ export default function Navbar() {
           )}
 
           {user?.role === 'teacher' && (
-            <Link
-              href="/teacher/approvals"
-              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
-                pathname === '/teacher/approvals'
-                  ? 'bg-amber-400/10 text-amber-300 border border-amber-400/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              🛡️ ศูนย์อนุมัติโครงงาน
-            </Link>
+            <>
+              <Link
+                href="/approvals"
+                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                  pathname === '/approvals'
+                    ? 'bg-amber-400/10 text-amber-300 border border-amber-400/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🛡️ ศูนย์อนุมัติโครงงาน
+              </Link>
+              <Link
+                href="/admin/users"
+                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                  pathname === '/admin/users'
+                    ? 'bg-violet-400/10 text-violet-300 border border-violet-400/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                👥 จัดการผู้ใช้
+              </Link>
+            </>
           )}
 
           {/* User Profile & Logout */}

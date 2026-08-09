@@ -76,6 +76,54 @@ export async function POST(request: Request) {
       )
     }
 
+    // 🟢 ตรวจสอบว่าผู้สร้างอยู่ในกลุ่มอื่นอยู่แล้วหรือไม่
+    const isCreatorNumericId = typeof createdBy === 'number' || !isNaN(Number(createdBy))
+    const { data: creatorUser, error: creatorFetchError } = await supabase
+      .from('users')
+      .select('group_id')
+      .eq(isCreatorNumericId ? 'id' : 'student_code', createdBy)
+      .single()
+
+    if (creatorFetchError) {
+      console.error('creator fetch error:', creatorFetchError)
+    }
+
+    if (creatorUser?.group_id) {
+      return NextResponse.json(
+        { error: '⛔ คุณอยู่ในกลุ่มอื่นอยู่แล้ว ไม่สามารถสร้างกลุ่มใหม่ได้ กรุณาออกจากกลุ่มเดิมก่อน' },
+        { status: 400 }
+      )
+    }
+
+    // 🟢 ตรวจสอบว่าสมาชิกที่จะเพิ่มเข้ากลุ่ม มีใครอยู่ในกลุ่มอื่นอยู่แล้วหรือไม่
+    const busyMembers: string[] = []
+    for (const member of members) {
+      const studentId = member.studentId || member.student_code
+      if (!studentId) continue
+
+      const { data: memberUser, error: memberFetchError } = await supabase
+        .from('users')
+        .select('group_id')
+        .eq('student_code', studentId)
+        .single()
+
+      if (memberFetchError) {
+        console.error(`fetch error for member ${studentId}:`, memberFetchError)
+        continue
+      }
+
+      if (memberUser?.group_id) {
+        busyMembers.push(member.fullname || member.name || studentId)
+      }
+    }
+
+    if (busyMembers.length > 0) {
+      return NextResponse.json(
+        { error: `⛔ สมาชิกต่อไปนี้อยู่ในกลุ่มอื่นอยู่แล้ว: ${busyMembers.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
     // 1. บันทึกลงตาราง groups (พร้อมเลือกค่า id กลับมาด้วย)
     const { data: groupData, error: groupError } = await supabase
       .from('groups')

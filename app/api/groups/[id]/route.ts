@@ -18,7 +18,7 @@ export async function PUT(
     // 1. ตรวจสอบสิทธิ์ (Fetch กลุ่มเดิม)
     const { data: currentGroup, error: fetchError } = await supabase
       .from('groups')
-      .select('created_by, status')
+      .select('created_by, status, class_name, name, project')
       .eq('id', groupId)
       .single()
 
@@ -36,11 +36,24 @@ export async function PUT(
       return NextResponse.json({ success: false, error: '⛔ คุณไม่มีสิทธิ์แก้ไขกลุ่มนี้' }, { status: 403 })
     }
 
-    if (!isTeacher && currentGroup.status === 'approved') {
-      return NextResponse.json({ success: false, error: '⛔ ไม่สามารถแก้ไขกลุ่มที่อนุมัติแล้ว' }, { status: 400 })
+    // 🟢 ถ้ากลุ่มอนุมัติแล้ว เจ้าของกลุ่ม (ไม่ใช่ครู) ยังสามารถเพิ่ม/แก้ไขสมาชิกได้
+    // แต่ห้ามเปลี่ยนชื่อห้อง/ชื่อกลุ่ม/ชื่อโครงงาน
+    const isApprovedLocked = !isTeacher && currentGroup.status === 'approved'
+    if (isApprovedLocked) {
+      const nameChanged =
+        String(className ?? '').trim() !== String(currentGroup.class_name ?? '').trim() ||
+        String(groupName ?? '').trim() !== String(currentGroup.name ?? '').trim() ||
+        String(projectName ?? '').trim() !== String(currentGroup.project ?? '').trim()
+
+      if (nameChanged) {
+        return NextResponse.json(
+          { success: false, error: '⛔ กลุ่มนี้อนุมัติแล้ว สามารถเพิ่ม/แก้ไขสมาชิกได้เท่านั้น ไม่สามารถเปลี่ยนชื่อห้อง/ชื่อกลุ่ม/ชื่อโครงงานได้' },
+          { status: 400 }
+        )
+      }
     }
 
-    // 2. อัปเดตข้อมูลกลุ่ม
+    // 2. อัปเดตข้อมูลกลุ่ม (ชื่อห้อง/กลุ่ม/โครงงาน จะไม่ถูกแตะต้องถ้ากลุ่มอนุมัติแล้ว เพราะค่าที่ส่งมาต้องตรงกับของเดิมอยู่แล้ว)
     await supabase.from('groups').update({
       class_name: className || null,
       name: groupName || null,

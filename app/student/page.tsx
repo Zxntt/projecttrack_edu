@@ -69,8 +69,14 @@ export default function StudentPage() {
 
     try {
       const user = JSON.parse(userStr)
+      const role = String(user.role || '').trim().toLowerCase()
 
-      if (!user.student_code && !user.studentCode && user.role !== 'student') {
+      if (role === 'teacher') {
+        router.replace('/')
+        return
+      }
+
+      if (!user.student_code && !user.studentCode && role !== 'student') {
         router.replace('/login')
         return
       }

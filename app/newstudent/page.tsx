@@ -50,6 +50,8 @@ export default function NewStudentPage() {
         router.replace("/login");
         return;
       }
+      // ทำความสะอาดค่า role กันเผื่อ localStorage เก่าจากก่อนแก้ (ล็อกอินค้างไว้)
+      user.role = String(user.role).trim().toLowerCase();
       setCurrentUser(user);
       fetchGroups();
     } catch (error) {

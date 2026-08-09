@@ -1,11 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useProjects } from '../context/ProjectContext'
 
 export default function SubmissionPage() {
+    const router = useRouter()
+    const [checking, setChecking] = useState(true)
     const { updateProgress } = useProjects()
-    
+
+  // 🔐 ตรวจสิทธิ์: หน้านี้สำหรับนักเรียนเท่านั้น
+  useEffect(() => {
+    const userStr = localStorage.getItem('user')
+    if (!userStr) {
+      router.replace('/login')
+      return
+    }
+    try {
+      const user = JSON.parse(userStr)
+      const role = String(user.role || '').trim().toLowerCase()
+      if (role !== 'student') {
+        // ล็อกอินแล้วแต่ไม่ใช่นักเรียน -> เด้งไปหน้าของตัวเอง
+        router.replace('/')
+        return
+      }
+      setChecking(false)
+    } catch {
+      router.replace('/login')
+    }
+  }, [router])
+
   const [group, setGroup] = useState('กลุ่ม 1')
   const [progress, setProgress] = useState('25')
   const [description, setDescription] = useState('')
@@ -32,6 +56,8 @@ export default function SubmissionPage() {
     alert('เกิดข้อผิดพลาด')
   }
 }
+
+  if (checking) return null
 
   return (
     <main className='min-h-screen bg-slate-50 p-6'>

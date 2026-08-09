@@ -38,11 +38,15 @@ export default function LoginPage() {
       }
 
       if (data.success && data.user) {
-        // บันทึกข้อมูลผู้ใช้ลง localStorage
-        localStorage.setItem('user', JSON.stringify(data.user))
+        // ทำความสะอาดค่า role ตั้งแต่ตอนเก็บ localStorage เลย กันปัญหาตัวพิมพ์เล็ก-ใหญ่/ช่องว่างที่หลุดมาจากฐานข้อมูล
+        const cleanUser = {
+          ...data.user,
+          role: String(data.user.role || '').trim().toLowerCase(),
+        }
+        localStorage.setItem('user', JSON.stringify(cleanUser))
 
         // แยกเส้นทางตามบทบาท (Role)
-        if (data.user.role === 'teacher') {
+        if (cleanUser.role === 'teacher') {
           router.push('/')
         } else {
           router.push('/student')

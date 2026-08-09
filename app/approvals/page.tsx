@@ -67,7 +67,8 @@ export default function TeacherApprovalsPage() {
     }
 
     const user = JSON.parse(userStr)
-    if (user.role !== 'teacher') {
+    const role = String(user.role || '').trim().toLowerCase()
+    if (role !== 'teacher') {
       alert('หน้านี้สำหรับอาจารย์เท่านั้น')
       router.push('/student')
       return

@@ -71,8 +71,9 @@ export default function Home() {
 
     try {
       const user = JSON.parse(userStr)
-      if (user.role !== 'teacher') {
-        router.push('/login')
+      const role = String(user.role || '').trim().toLowerCase()
+      if (role !== 'teacher') {
+        router.push('/student')
         return
       }
       setTeacherName(user.name || user.fullname || 'อาจารย์')

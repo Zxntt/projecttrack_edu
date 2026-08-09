@@ -19,12 +19,17 @@ export default function ReviewPage() {
 
   // ตรวจสิทธิ์อาจารย์
   useEffect(() => {
-    const user = JSON.parse(
-      localStorage.getItem('user') || '{}'
-    )
-
-    if (user.role !== 'teacher') {
+    const userStr = localStorage.getItem('user')
+    if (!userStr) {
       router.push('/login')
+      return
+    }
+
+    const user = JSON.parse(userStr)
+    const role = String(user.role || '').trim().toLowerCase()
+
+    if (role !== 'teacher') {
+      router.push('/student')
       return
     }
 
