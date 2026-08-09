@@ -15,7 +15,7 @@ export async function GET() {
     // 2. ดึงสมาชิกของแต่ละกลุ่ม
     const groupsWithMembers = await Promise.all(
       (groups || []).map(async (group: any) => {
-        let members = []
+        let members: { studentId: string; fullname: string }[] = []
         const { data: memberRows, error: memberError } = await supabase
           .from('group_members')
           .select('student_id, fullname')
