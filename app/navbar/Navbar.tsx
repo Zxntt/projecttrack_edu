@@ -79,11 +79,9 @@ export default function Navbar() {
                 href="/approvals"
                 className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
                   pathname === '/approvals'
-                    ? 'bg-amber-400/10 text-amber-300 border border-amber-400/30'
-                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                🛡️ ศูนย์อนุมัติโครงงาน
+                
               </Link>
               <Link
                 href="/admin/users"

@@ -17,6 +17,7 @@ export default function AdminUsersPage() {
   const [checking, setChecking] = useState(true)
   const [users, setUsers] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [savingId, setSavingId] = useState<number | null>(null)
 
   // 🔐 ตรวจสิทธิ์: หน้านี้สำหรับอาจารย์เท่านั้น
   useEffect(() => {
@@ -70,6 +71,45 @@ export default function AdminUsersPage() {
     }
   }
 
+  // 🟢 เปลี่ยนบทบาทผู้ใช้ (student <-> teacher)
+  const handleRoleChange = async (targetUser: UserRow, newRole: string) => {
+    if (targetUser.role === newRole) return
+
+    const prevUsers = users
+    // อัปเดตหน้าจอทันที (optimistic) เพื่อความลื่นไหล
+    setUsers((prev) =>
+      prev.map((u) => (u.id === targetUser.id ? { ...u, role: newRole } : u))
+    )
+    setSavingId(targetUser.id)
+
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: targetUser.id,
+          student_code: targetUser.student_code,
+          name: targetUser.name,
+          email: targetUser.email,
+          role: newRole,
+          group_id: targetUser.group_id,
+        }),
+      })
+      const data = await res.json()
+
+      if (!data.success) {
+        throw new Error('update failed')
+      }
+    } catch (error) {
+      console.error('Update role error:', error)
+      alert('เปลี่ยนบทบาทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
+      // ย้อนกลับข้อมูลเดิมถ้าบันทึกไม่สำเร็จ
+      setUsers(prevUsers)
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   if (checking) return null
 
   return (
@@ -120,9 +160,26 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 text-sm text-slate-200">{u.name}</td>
                       <td className="px-4 py-3 text-sm text-slate-400">{u.email || '-'}</td>
                       <td className="px-4 py-3">
-                        <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[10px] font-mono text-cyan-300">
-                          {u.role === 'teacher' ? 'TEACHER' : 'STUDENT'}
-                        </span>
+                        <select
+                          value={u.role === 'teacher' ? 'teacher' : 'student'}
+                          disabled={savingId === u.id}
+                          onChange={(e) => handleRoleChange(u, e.target.value)}
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-mono outline-none transition-colors ${
+                            u.role === 'teacher'
+                              ? 'border-violet-500/40 bg-violet-500/10 text-violet-300'
+                              : 'border-slate-700 bg-slate-800 text-cyan-300'
+                          } ${savingId === u.id ? 'opacity-50' : 'cursor-pointer hover:brightness-110'}`}
+                        >
+                          <option value="student" className="bg-slate-900 text-slate-200">
+                            STUDENT
+                          </option>
+                          <option value="teacher" className="bg-slate-900 text-slate-200">
+                            TEACHER
+                          </option>
+                        </select>
+                        {savingId === u.id && (
+                          <span className="ml-2 font-mono text-[10px] text-slate-500">กำลังบันทึก...</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
