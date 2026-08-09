@@ -127,15 +127,7 @@ export default function LoginPage() {
           <Link href="/register" className="font-semibold text-cyan-400 hover:underline">
             สมัครสมาชิกที่นี่
           </Link>
-        </div>
 
-        {/* บัญชีทดสอบ */}
-        <div className="mt-6 rounded-xl border border-slate-800/80 bg-slate-950/40 p-4 text-xs font-mono text-slate-400">
-          <p className="font-semibold text-slate-300">💡 บัญชีทดสอบระบบ:</p>
-          <div className="mt-2 space-y-1 text-slate-400">
-            <p>นักเรียน: 68319010015 / 123456</p>
-            <p>อาจารย์: teacher@cmtc.ac.th / admin123</p>
-          </div>
         </div>
       </div>
     </main>
