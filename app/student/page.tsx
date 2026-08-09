@@ -104,7 +104,7 @@ export default function StudentPage() {
       formData.append('groupName', student.group_name)
       formData.append('progress', progress)
       formData.append('description', description)
-      
+
       if (file) {
         formData.append('file', file)
       }
@@ -116,8 +116,17 @@ export default function StudentPage() {
 
       const data = await res.json()
 
-      if (data.success || res.ok) {
-        alert('✨ ส่งความคืบหน้าและแนบไฟล์เรียบร้อยแล้ว!')
+      if (data.success) {
+        // 🟢 DEBUG: โชว์ให้เห็นชัดๆ ว่าไฟล์ไปถึงเซิร์ฟเวอร์ไหม และบันทึก file_url เป็นอะไร
+        const debugInfo = data.debug
+          ? `\n\n[Debug]\nไฟล์ที่เซิร์ฟเวอร์ได้รับ: ${
+              data.debug.fileDebug?.received
+                ? `${data.debug.fileDebug.name} (${data.debug.fileDebug.size} bytes)`
+                : 'ไม่ได้รับไฟล์เลย'
+            }\nfile_url ที่บันทึก: ${data.debug.savedFileUrl || data.fileUrl || 'ไม่มี'}`
+          : ''
+
+        alert('✨ ส่งความคืบหน้าและแนบไฟล์เรียบร้อยแล้ว!' + debugInfo)
 
         const userStr = localStorage.getItem('user')
         if (userStr) {
@@ -132,7 +141,15 @@ export default function StudentPage() {
         setFile(null)
         setProgress('25')
       } else {
-        alert(data.message || data.error || 'ไม่สามารถส่งความคืบหน้าได้')
+        // 🟢 DEBUG: โชว์ debug info ตอน error ด้วย จะได้รู้ว่าติดตรงไหน
+        const debugInfo = data.debug
+          ? `\n\n[Debug]\nไฟล์ที่เซิร์ฟเวอร์ได้รับ: ${
+              data.debug.fileDebug?.received
+                ? `${data.debug.fileDebug.name} (${data.debug.fileDebug.size} bytes)`
+                : 'ไม่ได้รับไฟล์เลย'
+            }`
+          : ''
+        alert((data.error || data.message || 'ไม่สามารถส่งความคืบหน้าได้') + debugInfo)
       }
     } catch (error) {
       console.error(error)

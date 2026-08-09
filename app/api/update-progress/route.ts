@@ -11,15 +11,20 @@ export async function POST(request: Request) {
     const description = formData.get('description') as string
     const file = formData.get('file') as File | null
 
+    // 🟢 DEBUG: เช็คว่าเซิร์ฟเวอร์ได้รับไฟล์มาจริงไหม
+    const fileDebug = file
+      ? { received: true, name: file.name, size: file.size, type: file.type }
+      : { received: false }
+
     if (!studentCode) {
       return NextResponse.json(
-        { success: false, error: 'ไม่พบรหัสนักศึกษา' },
+        { success: false, error: 'ไม่พบรหัสนักศึกษา', debug: { fileDebug } },
         { status: 400 }
       )
     }
 
     // 1. ค้นหากลุ่มของนักเรียนจากตาราง users
-    const { data: userData, error: userError } = await supabase
+    const { data: userData } = await supabase
       .from('users')
       .select('group_id')
       .eq('student_code', studentCode)
@@ -27,7 +32,6 @@ export async function POST(request: Request) {
 
     let groupId = userData?.group_id
 
-    // ถ้าไม่พบ group_id จาก users แต่มี groupName ส่งมา ให้ลองหาจากตาราง groups
     if (!groupId && groupName) {
       const { data: groupData } = await supabase
         .from('groups')
@@ -42,18 +46,29 @@ export async function POST(request: Request) {
 
     if (!groupId) {
       return NextResponse.json(
-        { success: false, error: 'ไม่พบข้อมูลกลุ่มโครงงานของนักศึกษา' },
+        { success: false, error: 'ไม่พบข้อมูลกลุ่มโครงงานของนักศึกษา', debug: { fileDebug } },
         { status: 404 }
       )
     }
 
-    // 2. จัดการอัปโหลดไฟล์ไปที่ Supabase Storage (แนะนำให้สร้าง Bucket ชื่อ 'uploads' ไว้ล่วงหน้าใน Supabase)
+    // 2. จัดการอัปโหลดไฟล์ไปที่ Supabase Storage
     let filePath = null
+    let uploadFailed = false
+    let uploadErrorMessage = ''
+
     if (file && file.size > 0) {
       const arrayBuffer = await file.arrayBuffer()
-      const fileName = `${Date.now()}_${file.name.replace(/\s+/g, '_')}`
-      
-      // อัปโหลดไฟล์ขึ้น Supabase Storage (Bucket ชื่อ 'uploads')
+
+      // ดึงนามสกุลไฟล์เดิม (เช่น .png, .pdf) แบบปลอดภัย
+      const originalExt = file.name.includes('.')
+        ? file.name.split('.').pop()!.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
+        : ''
+
+      // สร้างชื่อไฟล์ใหม่เป็น timestamp + random string ล้วน (ไม่มีอักขระไทย/พิเศษ)
+      // เพื่อให้ผ่านกฎ key ของ Supabase Storage (รองรับเฉพาะ a-z A-Z 0-9 - _ . * ' ( ) /)
+      const randomId = Math.random().toString(36).slice(2, 10)
+      const fileName = `${Date.now()}_${randomId}${originalExt ? '.' + originalExt : ''}`
+
       const { error: uploadError } = await supabase.storage
         .from('uploads')
         .upload(fileName, arrayBuffer, {
@@ -63,15 +78,27 @@ export async function POST(request: Request) {
 
       if (uploadError) {
         console.error('Storage upload error:', uploadError)
-        // ถ้าไม่ใช้ Supabase Storage แต่จะเก็บแบบ Local เหมือนเดิม คุณสามารถคงโค้ด writeFile แบบเดิมไว้ได้ครับ
+        uploadFailed = true
+        uploadErrorMessage = uploadError.message
       } else {
-        // ดึง Public URL ของไฟล์ที่อัปโหลด
         const { data: publicUrlData } = supabase.storage
           .from('uploads')
           .getPublicUrl(fileName)
-        
+
         filePath = publicUrlData.publicUrl
       }
+    }
+
+    // 🟢 ถ้าอัปโหลดไม่สำเร็จ ให้หยุดและแจ้ง error กลับไปทันที พร้อมรายละเอียด debug
+    if (uploadFailed) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `⛔ อัปโหลดไฟล์ไม่สำเร็จ: ${uploadErrorMessage}`,
+          debug: { fileDebug, uploadErrorMessage },
+        },
+        { status: 500 }
+      )
     }
 
     // 3. ดึงข้อมูล file_url เดิมของกลุ่มมาเผื่อกรณีไม่ได้อัปโหลดไฟล์ใหม่
@@ -88,7 +115,7 @@ export async function POST(request: Request) {
       .from('groups')
       .update({
         progress: Number(progress) || 0,
-        status: 'pending', // เปลี่ยนสถานะกลับเป็น pending เพื่อให้อาจารย์ตรวจใหม่
+        status: 'pending',
         comment: description ? `[รายงานความคืบหน้า ${progress}%]: ${description}` : null,
         file_url: finalFileUrl,
       })
@@ -96,7 +123,7 @@ export async function POST(request: Request) {
 
     if (updateError) throw updateError
 
-    // 5. บันทึกลงตารางประวัติรายงานความคืบหน้า (progress_reports) ถ้ามีตารางนี้ในฐานข้อมูล
+    // 5. บันทึกลงตารางประวัติรายงานความคืบหน้า
     try {
       await supabase.from('progress_reports').insert([
         {
@@ -111,9 +138,12 @@ export async function POST(request: Request) {
       // ข้ามกรณีไม่มีตาราง progress_reports ใน Supabase
     }
 
+    // 🟢 ส่ง debug กลับไปด้วยเสมอ ให้เห็นชัดว่าเกิดอะไรขึ้นกับไฟล์
     return NextResponse.json({
       success: true,
       message: 'ส่งรายงานความคืบหน้าเรียบร้อยแล้ว รออาจารย์อนุมัติ',
+      fileUrl: finalFileUrl,
+      debug: { fileDebug, groupId, savedFileUrl: finalFileUrl },
     })
   } catch (error: any) {
     console.error('Error in /api/update-progress:', error)

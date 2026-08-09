@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { useProjects } from '../context/ProjectContext'
 
 export default function SubmissionPage() {
-    const router = useRouter()
-    const [checking, setChecking] = useState(true)
-    const { updateProgress } = useProjects()
+  const router = useRouter()
+  const [checking, setChecking] = useState(true)
+  const [studentCode, setStudentCode] = useState('')
+  const { updateProgress } = useProjects()
 
   // 🔐 ตรวจสิทธิ์: หน้านี้สำหรับนักเรียนเท่านั้น
   useEffect(() => {
@@ -20,10 +21,11 @@ export default function SubmissionPage() {
       const user = JSON.parse(userStr)
       const role = String(user.role || '').trim().toLowerCase()
       if (role !== 'student') {
-        // ล็อกอินแล้วแต่ไม่ใช่นักเรียน -> เด้งไปหน้าของตัวเอง
         router.replace('/')
         return
       }
+      // 🟢 ดึงรหัสนักศึกษาของผู้ใช้ปัจจุบันไว้ใช้ตอนส่งฟอร์ม
+      setStudentCode(user.student_code || user.studentId || '')
       setChecking(false)
     } catch {
       router.replace('/login')
@@ -34,28 +36,53 @@ export default function SubmissionPage() {
   const [progress, setProgress] = useState('25')
   const [description, setDescription] = useState('')
   const [github, setGithub] = useState('')
-  const [fileName, setFileName] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
+    e.preventDefault()
 
-  const res = await fetch('/api/update-progress', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      groupName: group,
-      progress: Number(progress),
-    }),
-  })
+    if (!studentCode) {
+      alert('ไม่พบรหัสนักศึกษา กรุณาเข้าสู่ระบบใหม่')
+      router.replace('/login')
+      return
+    }
 
-  if (res.ok) {
-    alert('ส่งความคืบหน้าเรียบร้อยแล้ว')
-  } else {
-    alert('เกิดข้อผิดพลาด')
+    setSubmitting(true)
+
+    // 🟢 ใช้ FormData เพื่อให้แนบไฟล์ไปด้วยได้จริง (ตรงกับที่ /api/update-progress คาดหวัง)
+    const formData = new FormData()
+    formData.append('student_code', studentCode)
+    formData.append('groupName', group)
+    formData.append('progress', progress)
+    formData.append('description', description)
+    if (github) formData.append('github', github)
+    if (file) formData.append('file', file)
+
+    try {
+      const res = await fetch('/api/update-progress', {
+        method: 'POST',
+        // ⚠️ ห้ามตั้ง Content-Type เอง ปล่อยให้ browser ตั้ง multipart boundary ให้อัตโนมัติ
+        body: formData,
+      })
+
+      const data = await res.json().catch(() => null)
+
+      if (res.ok && data?.success) {
+        alert(data.message || 'ส่งความคืบหน้าเรียบร้อยแล้ว')
+        setDescription('')
+        setGithub('')
+        setFile(null)
+      } else {
+        alert(data?.error || 'เกิดข้อผิดพลาดในการส่งข้อมูล')
+      }
+    } catch (error) {
+      console.error(error)
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์')
+    } finally {
+      setSubmitting(false)
+    }
   }
-}
 
   if (checking) return null
 
@@ -146,20 +173,19 @@ export default function SubmissionPage() {
 
           <div>
             <label className='mb-2 block text-sm font-medium text-slate-700'>
-              แนบไฟล์
+              แนบไฟล์ (รูปภาพ / เอกสาร)
             </label>
 
             <input
               type='file'
-              onChange={(e) =>
-                setFileName(e.target.files?.[0]?.name || '')
-              }
+              accept='image/*,.pdf,.doc,.docx,.zip'
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
               className='block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-blue-700 hover:file:bg-blue-100'
             />
 
-            {fileName && (
+            {file && (
               <p className='mt-2 text-sm text-slate-600'>
-                ไฟล์ที่เลือก: <span className='font-medium'>{fileName}</span>
+                ไฟล์ที่เลือก: <span className='font-medium'>{file.name}</span>
               </p>
             )}
           </div>
@@ -169,13 +195,14 @@ export default function SubmissionPage() {
             <ul className='mt-2 list-disc space-y-1 pl-5'>
               <li>กลุ่ม: {group}</li>
               <li>ความคืบหน้า: {progress}%</li>
-              <li>ไฟล์: {fileName || 'ยังไม่ได้เลือกไฟล์'}</li>
+              <li>ไฟล์: {file ? file.name : 'ยังไม่ได้เลือกไฟล์'}</li>
             </ul>
           </div>
 
           <div className='flex flex-col gap-3 sm:flex-row sm:justify-end'>
             <button
               type='reset'
+              onClick={() => setFile(null)}
               className='rounded-xl border border-slate-300 px-5 py-3 font-medium text-slate-700 hover:bg-slate-50'
             >
               ล้างข้อมูล
@@ -183,9 +210,10 @@ export default function SubmissionPage() {
 
             <button
               type='submit'
-              className='rounded-xl bg-blue-600 px-5 py-3 font-medium text-white shadow hover:bg-blue-700'
+              disabled={submitting}
+              className='rounded-xl bg-blue-600 px-5 py-3 font-medium text-white shadow hover:bg-blue-700 disabled:opacity-50'
             >
-              ส่งความคืบหน้า
+              {submitting ? 'กำลังส่ง...' : 'ส่งความคืบหน้า'}
             </button>
           </div>
         </form>
