@@ -245,9 +245,9 @@ export default function TeacherApprovalsPage() {
           <div className="flex gap-2">
             <button
               onClick={() => router.push('/')}
-              className="rounded-xl border border-slate-700 bg-slate-800/80 px-4 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-700 hover:text-white"
+              className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-400/20"
             >
-              🏠 หน้าหลัก
+              ← กลับหน้าหลัก
             </button>
 
             <button

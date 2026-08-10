@@ -128,7 +128,7 @@ export default function AdminUsersPage() {
             onClick={() => router.push('/')}
             className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-400/20"
           >
-            กลับ Dashboard
+            ← กลับหน้าหลัก
           </button>
         </div>
 

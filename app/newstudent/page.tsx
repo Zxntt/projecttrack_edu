@@ -303,7 +303,7 @@ export default function NewStudentPage() {
               onClick={handleGoBack}
               className="flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/40 px-4 py-2 font-medium text-slate-300 transition hover:bg-slate-800"
             >
-              ⬅️ {currentUser?.role === "teacher" ? "กลับหน้าอาจารย์" : "กลับหน้าส่งงาน"}
+              ⬅️ {currentUser?.role === "teacher" ? "กลับหน้าหลัก" : "กลับหน้าส่งงาน"}
             </button>
             <button
               onClick={handleOpenCreateModal}

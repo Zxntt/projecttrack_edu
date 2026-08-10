@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 type Milestone = {
   id: number
@@ -106,13 +107,24 @@ export default function AdminMilestonesPage() {
       }}
     >
       <div className="mx-auto max-w-3xl space-y-6">
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl">
-          <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
-            🧭 จัดการไมล์สโตน / เฟสโครงงาน
-          </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            ตั้งชื่อและกำหนดส่งของแต่ละเฟส (25% / 50% / 75% / 100%) ให้ตรงกับแผนการสอนของคุณ
-          </p>
+        {/* ส่วนหัว + ปุ่มกลับหน้าหลัก */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl">
+          <div>
+            <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+              🧭 จัดการไมล์สโตน / เฟสโครงงาน
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">
+              ตั้งชื่อและกำหนดส่งของแต่ละเฟส (25% / 50% / 75% / 100%) ให้ตรงกับแผนการสอนของคุณ
+            </p>
+          </div>
+          <div>
+            <Link
+              href="/" 
+              className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-400/20"
+            >
+              ← กลับหน้าหลัก
+            </Link>
+          </div>
         </div>
 
         <div className="space-y-4">
