@@ -2,6 +2,7 @@ import './globals.css'
 import { ProjectProvider } from './context/ProjectContext'
 import Navbar from './navbar/Navbar'
 import type { Metadata, Viewport } from 'next'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata: Metadata = {
   title: 'Project Track',
@@ -25,6 +26,7 @@ export default function RootLayout({
           <Navbar />
           {children}
         </ProjectProvider>
+        <Analytics />
       </body>
     </html>
   )
