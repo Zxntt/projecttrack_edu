@@ -10,6 +10,42 @@ export default function Navbar() {
   const [user, setUser] = useState<any>(null)
   const [isOpen, setIsOpen] = useState(false)
 
+  // 🟢 ระบบแจ้งเตือน (เฉพาะฝั่งนักเรียน)
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifOpen, setNotifOpen] = useState(false)
+
+  const fetchNotifications = async (studentCode: string) => {
+    try {
+      const res = await fetch(`/api/notifications?student_code=${encodeURIComponent(studentCode)}`)
+      const data = await res.json().catch(() => null)
+      if (data?.success) {
+        setNotifications(data.notifications || [])
+        setUnreadCount(data.unreadCount || 0)
+      }
+    } catch (error) {
+      console.error('Fetch notifications error:', error)
+    }
+  }
+
+  const handleOpenNotif = () => {
+    setNotifOpen((prev) => !prev)
+  }
+
+  const markNotifRead = async (id: number) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, is_read: true } : n)))
+    setUnreadCount((prev) => Math.max(0, prev - 1))
+    try {
+      await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+    } catch (error) {
+      console.error('Mark notification read error:', error)
+    }
+  }
+
   useEffect(() => {
     const userStr = localStorage.getItem('user')
     if (userStr) {
@@ -18,6 +54,12 @@ export default function Navbar() {
         parsed.role = String(parsed.role).trim().toLowerCase()
       }
       setUser(parsed)
+
+      // 🟢 โหลดแจ้งเตือนใหม่ทุกครั้งที่เปลี่ยนหน้า (นักเรียนเท่านั้น)
+      const code = parsed?.student_code || parsed?.studentCode
+      if (parsed?.role === 'student' && code) {
+        fetchNotifications(code)
+      }
     }
   }, [pathname])
 
@@ -102,7 +144,64 @@ export default function Navbar() {
               >
                 👥 จัดการผู้ใช้
               </Link>
+              <Link
+                href="/admin/milestones"
+                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                  pathname === '/admin/milestones'
+                    ? 'bg-violet-400/10 text-violet-300 border border-violet-400/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                🧭 ไมล์สโตน
+              </Link>
             </>
+          )}
+
+          {/* 🔔 กระดิ่งแจ้งเตือน (เฉพาะนักเรียน) */}
+          {user?.role === 'student' && (
+            <div className="relative">
+              <button
+                onClick={handleOpenNotif}
+                className="relative rounded-xl border border-slate-700 bg-slate-800/60 p-2 text-slate-300 hover:text-white"
+                aria-label="แจ้งเตือน"
+              >
+                🔔
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-slate-800 bg-[#0b0f19] p-2 shadow-2xl">
+                  {notifications.length === 0 ? (
+                    <p className="p-3 text-center text-xs text-slate-500 font-mono">
+                      ยังไม่มีการแจ้งเตือน
+                    </p>
+                  ) : (
+                    notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => !n.is_read && markNotifRead(n.id)}
+                        className={`mb-1 block w-full rounded-lg p-2.5 text-left text-xs transition ${
+                          n.is_read
+                            ? 'bg-slate-900/40 text-slate-500'
+                            : 'bg-cyan-400/10 text-slate-200 hover:bg-cyan-400/20'
+                        }`}
+                      >
+                        <p>{n.message}</p>
+                        {n.created_at && (
+                          <p className="mt-1 font-mono text-[10px] text-slate-500">
+                            {new Date(n.created_at).toLocaleString('th-TH')}
+                          </p>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {/* User Profile & Logout */}
@@ -204,6 +303,16 @@ export default function Navbar() {
                   }`}
                 >
                   👥 จัดการผู้ใช้
+                </Link>
+                <Link
+                  href="/admin/milestones"
+                  className={`rounded-xl px-3 py-2 text-xs font-medium transition ${
+                    pathname === '/admin/milestones'
+                      ? 'bg-violet-400/10 text-violet-300 border border-violet-400/30'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  🧭 ไมล์สโตน
                 </Link>
               </>
             )}

@@ -55,6 +55,19 @@ export default function Home() {
   const [history, setHistory] = useState<HistoryPoint[]>([])
   const [teacherName, setTeacherName] = useState<string>('')
 
+  // 🟢 ไมล์สโตน (เฟสโครงงาน) ใช้คำนวณว่ากลุ่มไหนเลยกำหนดส่งแล้วบ้าง
+  const [milestones, setMilestones] = useState<any[]>([])
+
+  const fetchMilestones = async () => {
+    try {
+      const res = await fetch('/api/milestones')
+      const data = await res.json().catch(() => null)
+      if (data?.success) setMilestones(data.milestones || [])
+    } catch (error) {
+      console.error('Fetch milestones error:', error)
+    }
+  }
+
   // 🔍 State สำหรับ Search & Filter
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
@@ -116,6 +129,7 @@ export default function Home() {
 
   useEffect(() => {
     fetchGroups()
+    fetchMilestones()
   }, [])
 
   const average =
@@ -125,6 +139,18 @@ export default function Home() {
 
   const submitted = groups.filter((g) => Number(g.progress) > 0).length
   const pending = groups.filter((g) => g.status === 'รอตรวจ' || g.status === 'pending').length
+  const approved = groups.filter((g) => {
+    const st = (g.status || '').toLowerCase()
+    return st === 'approved' || g.status === 'ผ่าน' || g.status === 'เสร็จสมบูรณ์'
+  }).length
+
+  // 🟢 นับกลุ่มที่ "เลยกำหนดส่ง" อย่างน้อย 1 ไมล์สโตน (มีกำหนดส่งที่ผ่านมาแล้ว แต่ progress ยังไปไม่ถึง)
+  const today = new Date().toISOString().slice(0, 10)
+  const overdue = groups.filter((g) =>
+    milestones.some(
+      (m) => m.due_date && m.due_date < today && Number(m.percent) > Number(g.progress || 0)
+    )
+  ).length
 
   // 🎯 Filter & Sort Logic
   const filteredGroups = groups
@@ -237,7 +263,7 @@ export default function Home() {
         <AverageTrendChart history={history} average={average} />
 
         {/* Stats */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
           <StatCard
             icon="🧩"
             label="จำนวนกลุ่มทั้งหมด"
@@ -261,6 +287,22 @@ export default function Home() {
             unit="กลุ่ม"
             accent="from-amber-400 to-amber-200"
             glow="shadow-[0_0_25px_-8px_rgba(251,191,36,0.6)]"
+          />
+          <StatCard
+            icon="✅"
+            label="ผ่านการอนุมัติแล้ว"
+            value={approved}
+            unit="กลุ่ม"
+            accent="from-teal-400 to-teal-200"
+            glow="shadow-[0_0_25px_-8px_rgba(45,212,191,0.6)]"
+          />
+          <StatCard
+            icon="🚨"
+            label="เลยกำหนดส่ง"
+            value={overdue}
+            unit="กลุ่ม"
+            accent="from-rose-400 to-rose-200"
+            glow="shadow-[0_0_25px_-8px_rgba(251,113,133,0.6)]"
           />
           <StatCard
             icon="📊"

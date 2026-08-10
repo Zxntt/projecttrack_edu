@@ -40,6 +40,25 @@ export default function StudentPage() {
   const [reportHistory, setReportHistory] = useState<ProgressReport[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
+  // 🟢 ไมล์สโตน (เฟสโครงงาน) — ชื่อ/กำหนดส่งของแต่ละเปอร์เซ็นต์
+  const [milestones, setMilestones] = useState<any[]>([])
+
+  useEffect(() => {
+    const fetchMilestones = async () => {
+      try {
+        const res = await fetch('/api/milestones')
+        const data = await res.json().catch(() => null)
+        if (data?.success) setMilestones(data.milestones || [])
+      } catch (error) {
+        console.error('Fetch milestones error:', error)
+      }
+    }
+    fetchMilestones()
+  }, [])
+
+  const getMilestone = (percent: string) => milestones.find((m) => Number(m.percent) === Number(percent))
+  const today = new Date().toISOString().slice(0, 10)
+
   const fetchSubmissionHistory = async (groupId?: number | null, groupName?: string) => {
     if (!groupId && !groupName) return
     setHistoryLoading(true)
@@ -406,12 +425,16 @@ export default function StudentPage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {['25', '50', '75', '100'].map((p) => {
                 const isSubmitted = submittedLevels.includes(Number(p))
+                const milestone = getMilestone(p)
+                const isOverdue =
+                  milestone?.due_date && milestone.due_date < today && !isSubmitted
                 return (
                   <button
                     key={p}
                     type="button"
                     disabled={!canSubmit}
                     onClick={() => setProgress(p)}
+                    title={milestone?.name || ''}
                     className={`relative rounded-xl border py-3 font-mono font-semibold transition ${
                       progress === p
                         ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_15px_-3px_rgba(34,211,238,0.4)]'
@@ -424,10 +447,27 @@ export default function StudentPage() {
                         ✔ ส่งแล้ว
                       </span>
                     )}
+                    {!isSubmitted && isOverdue && (
+                      <span className="absolute -top-2 -right-2 rounded-full border border-rose-400/40 bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-rose-300">
+                        🚨 เลยกำหนด
+                      </span>
+                    )}
                   </button>
                 )
               })}
             </div>
+
+            {/* 🟢 ชื่อเฟส/กำหนดส่งของเปอร์เซ็นต์ที่เลือกอยู่ */}
+            {getMilestone(progress) && (
+              <p className="mt-2 text-xs font-mono text-slate-400">
+                📌 {getMilestone(progress)?.name}
+                {getMilestone(progress)?.due_date && (
+                  <span className="ml-2 text-slate-500">
+                    (กำหนดส่ง: {getMilestone(progress)?.due_date})
+                  </span>
+                )}
+              </p>
+            )}
 
             {/* 🟢 แจ้งเตือนถ้างานเปอร์เซ็นต์ที่เลือกอยู่เคยส่งไปแล้ว */}
             {submittedLevels.includes(Number(progress)) && (

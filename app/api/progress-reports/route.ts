@@ -92,6 +92,36 @@ export async function PATCH(request: Request) {
 
     if (error) throw error
 
+    // 🟢 แจ้งเตือนสมาชิกในกลุ่มว่ามีความเห็นใหม่จากอาจารย์ในรอบนี้
+    if (teacherComment?.trim()) {
+      try {
+        const { data: report } = await supabase
+          .from('progress_reports')
+          .select('group_id, progress')
+          .eq('id', reportId)
+          .single()
+
+        if (report?.group_id) {
+          const { data: members } = await supabase
+            .from('group_members')
+            .select('student_id')
+            .eq('group_id', report.group_id)
+
+          if (members && members.length > 0) {
+            await supabase.from('notifications').insert(
+              members.map((m: any) => ({
+                student_code: m.student_id,
+                group_id: report.group_id,
+                message: `💬 อาจารย์แสดงความเห็นในงานรอบ ${report.progress}%: ${teacherComment.trim()}`,
+              }))
+            )
+          }
+        }
+      } catch (notifyError) {
+        console.error('Notification insert error:', notifyError)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'บันทึกความเห็นเรียบร้อยแล้ว',

@@ -132,6 +132,31 @@ export async function PATCH(request: Request) {
 
     if (updateError) throw updateError
 
+    // 🟢 แจ้งเตือนสมาชิกในกลุ่มทุกคนว่าสถานะโครงงานเปลี่ยน
+    try {
+      const { data: members } = await supabase
+        .from('group_members')
+        .select('student_id')
+        .eq('group_id', groupId)
+
+      const statusLabel =
+        targetStatus === 'approved' ? '✅ โครงงานของคุณได้รับการอนุมัติแล้ว' : '❌ โครงงานของคุณถูกส่งกลับให้แก้ไข'
+      const message = targetComment ? `${statusLabel}: ${targetComment}` : statusLabel
+
+      if (members && members.length > 0) {
+        await supabase.from('notifications').insert(
+          members.map((m: any) => ({
+            student_code: m.student_id,
+            group_id: groupId,
+            message,
+          }))
+        )
+      }
+    } catch (notifyError) {
+      // ไม่ให้การแจ้งเตือนพังกระทบการอนุมัติหลัก
+      console.error('Notification insert error:', notifyError)
+    }
+
     return NextResponse.json({
       success: true,
       message: targetStatus === 'approved' ? 'อนุมัติเรียบร้อยแล้ว' : 'ส่งข้อเสนอแนะเรียบร้อยแล้ว',

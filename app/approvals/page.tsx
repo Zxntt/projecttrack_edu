@@ -24,6 +24,7 @@ interface Group {
   groupName: string
   projectName: string
   status: string
+  progress: number
   comment?: string
   fileUrl?: string
   members: Member[]
@@ -46,6 +47,26 @@ export default function TeacherApprovalsPage() {
   const [reportComments, setReportComments] = useState<Record<number, string>>({})
   const [savingReportId, setSavingReportId] = useState<number | null>(null)
   const [expandedGroupId, setExpandedGroupId] = useState<number | null>(null)
+
+  // 🟢 ไมล์สโตน (เฟสโครงงาน) — ใช้เช็คว่ากลุ่มไหนเลยกำหนดส่งแล้วบ้าง
+  const [milestones, setMilestones] = useState<any[]>([])
+
+  useEffect(() => {
+    const fetchMilestones = async () => {
+      try {
+        const res = await fetch('/api/milestones')
+        const data = await res.json().catch(() => null)
+        if (data?.success) setMilestones(data.milestones || [])
+      } catch (error) {
+        console.error('Fetch milestones error:', error)
+      }
+    }
+    fetchMilestones()
+  }, [])
+
+  const today = new Date().toISOString().slice(0, 10)
+  const getOverdueMilestone = (groupProgress: number) =>
+    milestones.find((m) => m.due_date && m.due_date < today && Number(m.percent) > groupProgress)
 
   // ดึงรายการกลุ่มตาม Status
   const fetchApprovals = async () => {
@@ -288,6 +309,12 @@ export default function TeacherApprovalsPage() {
                       {group.className}
                     </span>
                   </div>
+
+                  {getOverdueMilestone(group.progress) && (
+                    <div className="mt-2 inline-block rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-0.5 text-[10px] font-mono text-rose-300">
+                      🚨 เลยกำหนดเฟส "{getOverdueMilestone(group.progress)?.name}"
+                    </div>
+                  )}
 
                   <p className="mt-2 text-sm text-slate-300">
                     <span className="font-semibold text-amber-300">หัวข้อโครงงาน :</span>{' '}
