@@ -125,16 +125,6 @@ export default function Navbar() {
           {user?.role === 'teacher' && (
             <>
               <Link
-                href="/approvals"
-                className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
-                  pathname === '/approvals'
-                    ? 'bg-violet-400/10 text-violet-300 border border-violet-400/30'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                ✅ อนุมัติ
-              </Link>
-              <Link
                 href="/admin/users"
                 className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
                   pathname === '/admin/users'
@@ -152,7 +142,7 @@ export default function Navbar() {
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                🧭 ไมล์สโตน
+                🧭 กำหนดเวลาส่งงาน
               </Link>
             </>
           )}
