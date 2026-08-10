@@ -60,6 +60,22 @@ export async function GET(request: Request) {
           console.error('Fetch members error:', e)
         }
 
+        // 🟢 ดึงประวัติการส่งงานของกลุ่มนี้ทั้งหมด เพื่อให้อาจารย์คอมเมนต์แยกได้ทีละรอบ
+        let reports: any[] = []
+        try {
+          const { data: reportRows, error: reportError } = await supabase
+            .from('progress_reports')
+            .select('*')
+            .eq('group_id', group.id)
+            .order('created_at', { ascending: false })
+
+          if (!reportError && reportRows) {
+            reports = reportRows
+          }
+        } catch (e) {
+          console.error('Fetch progress_reports error:', e)
+        }
+
         return {
           id: group.id,
           className: group.class_name || group.className || 'ปวส.2 สายตรง',
@@ -71,6 +87,7 @@ export async function GET(request: Request) {
           fileUrl: group.file_url || null, // ส่งลิงก์ไฟล์งานให้อาจารย์
           createdAt: group.created_at,
           members: members,
+          reports: reports, // 🟢 ประวัติการส่งงานทีละรอบ พร้อมคอมเมนต์ต่อรอบ
         }
       })
     )

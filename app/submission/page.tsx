@@ -39,6 +39,30 @@ export default function SubmissionPage() {
   const [file, setFile] = useState<File | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // 🟢 เช็คงานว่ากลุ่มที่เลือกอยู่ ส่งงาน (เปอร์เซ็นต์ไหน) ไปแล้วบ้าง
+  const [submittedLevels, setSubmittedLevels] = useState<number[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  const fetchSubmittedLevels = async (groupName: string) => {
+    if (!groupName) return
+    setHistoryLoading(true)
+    try {
+      const res = await fetch(`/api/progress-reports?groupName=${encodeURIComponent(groupName)}`)
+      const data = await res.json().catch(() => null)
+      setSubmittedLevels(data?.success ? data.submittedLevels || [] : [])
+    } catch (error) {
+      console.error('Fetch submitted levels error:', error)
+      setSubmittedLevels([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  // 🟢 โหลดสถานะการส่งงานใหม่ทุกครั้งที่เปลี่ยนกลุ่ม (รวมครั้งแรกที่เข้าหน้า)
+  useEffect(() => {
+    if (!checking) fetchSubmittedLevels(group)
+  }, [group, checking])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -46,6 +70,14 @@ export default function SubmissionPage() {
       alert('ไม่พบรหัสนักศึกษา กรุณาเข้าสู่ระบบใหม่')
       router.replace('/login')
       return
+    }
+
+    // 🟢 ถ้างานเปอร์เซ็นต์นี้เคยส่งไปแล้ว ให้เตือนก่อนส่งซ้ำ
+    if (submittedLevels.includes(Number(progress))) {
+      const confirmResend = confirm(
+        `⚠️ งาน ${progress}% ของ${group} เคยถูกส่งไปแล้ว ต้องการส่งซ้ำ (อัปเดตข้อมูลใหม่) หรือไม่?`
+      )
+      if (!confirmResend) return
     }
 
     setSubmitting(true)
@@ -73,6 +105,7 @@ export default function SubmissionPage() {
         setDescription('')
         setGithub('')
         setFile(null)
+        fetchSubmittedLevels(group) // 🟢 รีเฟรชสถานะงานที่ส่งแล้วของกลุ่มนี้
       } else {
         alert(data?.error || 'เกิดข้อผิดพลาดในการส่งข้อมูล')
       }
@@ -125,21 +158,36 @@ export default function SubmissionPage() {
             </label>
 
             <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-              {['25', '50', '75', '100'].map((p) => (
-                <button
-                  key={p}
-                  type='button'
-                  onClick={() => setProgress(p)}
-                  className={`rounded-xl border px-4 py-3 text-center font-semibold transition ${
-                    progress === p
-                      ? 'border-blue-600 bg-blue-600 text-white'
-                      : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400'
-                  }`}
-                >
-                  {p}%
-                </button>
-              ))}
+              {['25', '50', '75', '100'].map((p) => {
+                const isSubmitted = submittedLevels.includes(Number(p))
+                return (
+                  <button
+                    key={p}
+                    type='button'
+                    onClick={() => setProgress(p)}
+                    className={`relative rounded-xl border px-4 py-3 text-center font-semibold transition ${
+                      progress === p
+                        ? 'border-blue-600 bg-blue-600 text-white'
+                        : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400'
+                    }`}
+                  >
+                    {p}%
+                    {isSubmitted && (
+                      <span className='absolute -top-2 -right-2 rounded-full border border-emerald-400 bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700'>
+                        ✔ ส่งแล้ว
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
+
+            {/* 🟢 แจ้งเตือนถ้างานเปอร์เซ็นต์ที่เลือกอยู่เคยส่งไปแล้ว */}
+            {!historyLoading && submittedLevels.includes(Number(progress)) && (
+              <p className='mt-2 text-sm font-medium text-emerald-600'>
+                ✔ งาน {progress}% ของ{group} ถูกส่งไปแล้ว — ถ้าส่งอีกครั้งจะเป็นการอัปเดตข้อมูลเดิม
+              </p>
+            )}
           </div>
 
           <div>

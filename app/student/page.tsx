@@ -12,6 +12,17 @@ type StudentData = {
   status: string // 'pending' | 'approved' | 'rejected' | 'no_group'
   displayStatus: string
   comment?: string
+  group_id?: number | null
+}
+
+// 🟢 ประวัติการส่งงานหนึ่งรายการ (จากตาราง progress_reports)
+type ProgressReport = {
+  id?: number
+  progress: number
+  description: string
+  file_path?: string | null
+  teacher_comment?: string | null
+  created_at?: string
 }
 
 export default function StudentPage() {
@@ -23,6 +34,32 @@ export default function StudentPage() {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+
+  // 🟢 เช็คงานว่ากลุ่มนี้ส่งงาน (เปอร์เซ็นต์ไหน) ไปแล้วบ้าง
+  const [submittedLevels, setSubmittedLevels] = useState<number[]>([])
+  const [reportHistory, setReportHistory] = useState<ProgressReport[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  const fetchSubmissionHistory = async (groupId?: number | null, groupName?: string) => {
+    if (!groupId && !groupName) return
+    setHistoryLoading(true)
+    try {
+      const query = groupId
+        ? `group_id=${groupId}`
+        : `groupName=${encodeURIComponent(groupName || '')}`
+      const res = await fetch(`/api/progress-reports?${query}`)
+      const data = await res.json().catch(() => null)
+
+      if (data?.success) {
+        setSubmittedLevels(data.submittedLevels || [])
+        setReportHistory(data.reports || [])
+      }
+    } catch (error) {
+      console.error('Fetch submission history error:', error)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
 
   const fetchStudentData = async (studentCode: string) => {
     try {
@@ -41,16 +78,25 @@ export default function StudentPage() {
       const data = resJson.data || resJson
 
       if (data) {
+        const groupId = data.groupId || data.group_id || null
+        const groupName = data.groupName || data.group_name || 'ยังไม่มีกลุ่ม'
+
         setStudent({
           name: data.name || 'นักศึกษารายใหม่',
           student_code: data.studentCode || data.student_code || studentCode,
-          group_name: data.groupName || data.group_name || 'ยังไม่มีกลุ่ม',
+          group_name: groupName,
           project: data.project || 'ยังไม่ได้ระบุโครงงาน',
           progress: Number(data.progress) || 0,
           status: data.status || 'no_group',
           displayStatus: data.displayStatus || data.status || 'รอการส่งงาน',
           comment: data.comment || '',
+          group_id: groupId,
         })
+
+        // 🟢 หลังได้ข้อมูลกลุ่มแล้ว ไปเช็คว่ากลุ่มนี้เคยส่งงานเปอร์เซ็นต์ไหนไปแล้วบ้าง
+        if (groupId || (groupName && groupName !== 'ยังไม่มีกลุ่ม')) {
+          fetchSubmissionHistory(groupId, groupName)
+        }
       }
     } catch (error: any) {
       console.error('Fetch student error:', error)
@@ -97,6 +143,14 @@ export default function StudentPage() {
     e.preventDefault()
     if (!student) return
 
+    // 🟢 ถ้างานเปอร์เซ็นต์นี้เคยส่งไปแล้ว ให้เตือนก่อนส่งซ้ำ
+    if (submittedLevels.includes(Number(progress))) {
+      const confirmResend = confirm(
+        `⚠️ งาน ${progress}% นี้เคยถูกส่งไปแล้ว ต้องการส่งซ้ำ (อัปเดตข้อมูลใหม่) หรือไม่?`
+      )
+      if (!confirmResend) return
+    }
+
     setSubmitting(true)
     try {
       const formData = new FormData()
@@ -140,6 +194,9 @@ export default function StudentPage() {
         setDescription('')
         setFile(null)
         setProgress('25')
+
+        // 🟢 ส่งสำเร็จแล้ว รีเฟรชประวัติการส่งงานให้เห็นสถานะล่าสุด
+        fetchSubmissionHistory(student.group_id, student.group_name)
       } else {
         // 🟢 DEBUG: โชว์ debug info ตอน error ด้วย จะได้รู้ว่าติดตรงไหน
         const debugInfo = data.debug
@@ -347,23 +404,78 @@ export default function StudentPage() {
             </label>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {['25', '50', '75', '100'].map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  disabled={!canSubmit}
-                  onClick={() => setProgress(p)}
-                  className={`rounded-xl border py-3 font-mono font-semibold transition ${
-                    progress === p
-                      ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_15px_-3px_rgba(34,211,238,0.4)]'
-                      : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-                  }`}
-                >
-                  {p}%
-                </button>
-              ))}
+              {['25', '50', '75', '100'].map((p) => {
+                const isSubmitted = submittedLevels.includes(Number(p))
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    disabled={!canSubmit}
+                    onClick={() => setProgress(p)}
+                    className={`relative rounded-xl border py-3 font-mono font-semibold transition ${
+                      progress === p
+                        ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_15px_-3px_rgba(34,211,238,0.4)]'
+                        : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    {p}%
+                    {isSubmitted && (
+                      <span className="absolute -top-2 -right-2 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
+                        ✔ ส่งแล้ว
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
+
+            {/* 🟢 แจ้งเตือนถ้างานเปอร์เซ็นต์ที่เลือกอยู่เคยส่งไปแล้ว */}
+            {submittedLevels.includes(Number(progress)) && (
+              <p className="mt-2 text-xs font-mono text-emerald-400">
+                ✔ งาน {progress}% นี้กลุ่มของคุณส่งไปแล้ว — ถ้าส่งอีกครั้งจะเป็นการอัปเดตข้อมูลเดิม
+              </p>
+            )}
           </div>
+
+          {/* 🟢 ประวัติการส่งงานของกลุ่ม */}
+          {(historyLoading || reportHistory.length > 0) && (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
+              <p className="mb-2 text-xs font-mono uppercase tracking-wider text-slate-500">
+                📜 ประวัติงานที่กลุ่มนี้ส่งไปแล้ว
+              </p>
+              {historyLoading ? (
+                <p className="text-xs text-slate-500 font-mono">กำลังโหลด...</p>
+              ) : (
+                <ul className="space-y-2">
+                  {reportHistory.map((r, i) => (
+                    <li
+                      key={r.id ?? i}
+                      className="flex items-start justify-between gap-3 rounded-lg border border-slate-800/60 bg-slate-900/40 px-3 py-2 text-xs"
+                    >
+                      <div className="min-w-0">
+                        <span className="font-mono font-semibold text-cyan-300">
+                          {r.progress}%
+                        </span>
+                        {r.description && (
+                          <p className="mt-0.5 truncate text-slate-400">{r.description}</p>
+                        )}
+                        {r.teacher_comment && (
+                          <p className="mt-1 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1 text-[11px] text-amber-300">
+                            💬 อาจารย์: {r.teacher_comment}
+                          </p>
+                        )}
+                      </div>
+                      {r.created_at && (
+                        <span className="shrink-0 font-mono text-[10px] text-slate-500">
+                          {new Date(r.created_at).toLocaleDateString('th-TH')}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="mb-2 block text-xs font-mono text-slate-400">

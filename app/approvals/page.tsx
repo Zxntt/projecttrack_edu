@@ -8,6 +8,16 @@ interface Member {
   fullname: string
 }
 
+// 🟢 การส่งงานหนึ่งรอบ (จากตาราง progress_reports)
+interface ProgressReport {
+  id: number
+  progress: number
+  description: string
+  file_path?: string | null
+  teacher_comment?: string | null
+  created_at?: string
+}
+
 interface Group {
   id: number
   className: string
@@ -17,6 +27,7 @@ interface Group {
   comment?: string
   fileUrl?: string
   members: Member[]
+  reports: ProgressReport[]
 }
 
 export default function TeacherApprovalsPage() {
@@ -30,6 +41,11 @@ export default function TeacherApprovalsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
   const [commentText, setCommentText] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+
+  // 🟢 State สำหรับกล่องคอมเมนต์ต่อรายการส่งงาน (key = report.id)
+  const [reportComments, setReportComments] = useState<Record<number, string>>({})
+  const [savingReportId, setSavingReportId] = useState<number | null>(null)
+  const [expandedGroupId, setExpandedGroupId] = useState<number | null>(null)
 
   // ดึงรายการกลุ่มตาม Status
   const fetchApprovals = async () => {
@@ -76,6 +92,39 @@ export default function TeacherApprovalsPage() {
 
     fetchApprovals()
   }, [filter, router])
+
+  // 🟢 บันทึกคอมเมนต์สำหรับการส่งงานรอบใดรอบหนึ่งโดยเฉพาะ
+  const saveReportComment = async (reportId: number) => {
+    const teacherComment = (reportComments[reportId] ?? '').trim()
+    setSavingReportId(reportId)
+    try {
+      const res = await fetch('/api/progress-reports', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId, teacherComment }),
+      })
+      const data = await res.json()
+
+      if (data.success) {
+        // อัปเดต state ในหน้าให้ตรงกับที่บันทึกไปโดยไม่ต้องโหลดใหม่ทั้งหมด
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            reports: g.reports?.map((r) =>
+              r.id === reportId ? { ...r, teacher_comment: teacherComment } : r
+            ),
+          }))
+        )
+      } else {
+        alert(data.error || 'บันทึกความเห็นไม่สำเร็จ')
+      }
+    } catch (error) {
+      console.error(error)
+      alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์')
+    } finally {
+      setSavingReportId(null)
+    }
+  }
 
   // ฟังก์ชันกด "อนุมัติ"
   const handleApprove = async (groupId: number) => {
@@ -285,6 +334,81 @@ export default function TeacherApprovalsPage() {
                   {group.comment && (
                     <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-950/20 p-2.5 text-xs text-rose-300 font-mono">
                       💬 ข้อเสนอแนะล่าสุด: "{group.comment}"
+                    </div>
+                  )}
+
+                  {/* 🟢 ประวัติการส่งงานทีละรอบ + คอมเมนต์แยกต่อรอบ */}
+                  {group.reports && group.reports.length > 0 && (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedGroupId(expandedGroupId === group.id ? null : group.id)
+                        }
+                        className="w-full rounded-xl border border-slate-800/60 bg-slate-950/40 px-3 py-2 text-left text-xs font-mono text-slate-400 hover:text-slate-200"
+                      >
+                        📜 ประวัติการส่งงาน ({group.reports.length} รอบ){' '}
+                        {expandedGroupId === group.id ? '▲' : '▼'}
+                      </button>
+
+                      {expandedGroupId === group.id && (
+                        <div className="mt-2 space-y-3">
+                          {group.reports.map((r) => (
+                            <div
+                              key={r.id}
+                              className="rounded-xl border border-slate-800/60 bg-slate-950/30 p-3"
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-mono text-xs font-semibold text-cyan-300">
+                                  {r.progress}%
+                                </span>
+                                {r.created_at && (
+                                  <span className="font-mono text-[10px] text-slate-500">
+                                    {new Date(r.created_at).toLocaleString('th-TH')}
+                                  </span>
+                                )}
+                              </div>
+
+                              {r.description && (
+                                <p className="mt-1 text-xs text-slate-300">{r.description}</p>
+                              )}
+
+                              {r.file_path && (
+                                <a
+                                  href={r.file_path}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-1 inline-block text-[10px] font-mono text-cyan-400 underline underline-offset-2"
+                                >
+                                  📎 ดูไฟล์แนบของรอบนี้
+                                </a>
+                              )}
+
+                              <textarea
+                                value={reportComments[r.id] ?? r.teacher_comment ?? ''}
+                                onChange={(e) =>
+                                  setReportComments((prev) => ({
+                                    ...prev,
+                                    [r.id]: e.target.value,
+                                  }))
+                                }
+                                rows={2}
+                                placeholder="เขียนความเห็น/ข้อเสนอแนะสำหรับงานรอบนี้..."
+                                className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() => saveReportComment(r.id)}
+                                disabled={savingReportId === r.id}
+                                className="mt-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold text-cyan-300 hover:bg-cyan-400/20 disabled:opacity-50"
+                              >
+                                {savingReportId === r.id ? 'กำลังบันทึก...' : '💾 บันทึกความเห็น'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
