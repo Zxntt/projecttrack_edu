@@ -1,28 +1,42 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'YOUR_SUPABASE_URL'
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_KEY'
-
-const supabase = createClient(supabaseUrl, supabaseKey)
+import { supabase } from '@/lib/supabase'
 
 export async function POST(req: Request) {
   try {
-    const { userId, oldPassword, newPassword } = await req.json()
+    const { userId, studentCode, email, oldPassword, newPassword } = await req.json()
 
-    if (!userId || !oldPassword || !newPassword) {
-      return NextResponse.json({ success: false, error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 })
+    if (!oldPassword || !newPassword) {
+      return NextResponse.json({ success: false, error: 'กรุณากรอกรหัสผ่านเดิมและรหัสผ่านใหม่' }, { status: 400 })
     }
 
-    // ลองค้นหาผู้ใช้จาก id (รองรับทั้งแบบตัวเลขและตัวอักษร)
-    const { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle()
+    let user = null
 
-    if (fetchError || !user) {
-      return NextResponse.json({ success: false, error: `ไม่พบข้อมูลผู้ใช้งาน (ID: ${userId}) ในฐานข้อมูล` }, { status: 404 })
+    // 1. ค้นหาจาก email ก่อน (มีความแม่นยำสูงที่สุด)
+    if (email) {
+      const { data, error } = await supabase.from('users').select('*').eq('email', email).maybeSingle()
+      if (error) console.error('Lookup by email error:', error)
+      user = data
+    }
+
+    // 2. ถ้ายังไม่เจอ ลองค้นหาจาก student_code
+    if (!user && studentCode) {
+      const { data, error } = await supabase.from('users').select('*').eq('student_code', studentCode).maybeSingle()
+      if (error) console.error('Lookup by student_code error:', error)
+      user = data
+    }
+
+    // 3. ถ้ายังไม่เจออีก ค่อยลองค้นหาจาก id ใน localStorage
+    if (!user && userId) {
+      const { data, error } = await supabase.from('users').select('*').eq('id', userId).maybeSingle()
+      if (error) console.error('Lookup by id error:', error)
+      user = data
+    }
+
+    if (!user) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'ไม่พบข้อมูลผู้ใช้งานในฐานข้อมูล กรุณาล็อกอินใหม่อีกครั้งเพื่อรีเฟรชข้อมูล' 
+      }, { status: 404 })
     }
 
     // ตรวจสอบรหัสผ่านเดิม
@@ -30,11 +44,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'รหัสผ่านเดิมไม่ถูกต้อง' }, { status: 400 })
     }
 
-    // อัปเดตรหัสผ่านใหม่
+    // อัปเดตรหัสผ่านใหม่โดยอ้างอิงจาก id จริงที่พบในฐานข้อมูล
     const { error: updateError } = await supabase
       .from('users')
       .update({ password: newPassword })
-      .eq('id', userId)
+      .eq('id', user.id)
 
     if (updateError) {
       return NextResponse.json({ success: false, error: 'ไม่สามารถเปลี่ยนรหัสผ่านได้' }, { status: 500 })
