@@ -194,12 +194,19 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* User Profile & Logout */}
+          {/* User Profile & Actions */}
           {user ? (
-            <div className="flex items-center gap-3 border-l border-slate-800 pl-3">
+            <div className="flex items-center gap-2 sm:gap-3 border-l border-slate-800 pl-3">
               <span className="hidden text-xs text-slate-300 sm:inline font-mono">
                 {user.name}
               </span>
+              <Link
+                href="/change-password"
+                className="rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-700 hover:text-white"
+                title="เปลี่ยนรหัสผ่าน"
+              >
+                🔑 เปลี่ยนรหัส
+              </Link>
               <button
                 onClick={handleLogout}
                 className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
@@ -308,12 +315,20 @@ export default function Navbar() {
             )}
 
             {user ? (
-              <button
-                onClick={handleLogout}
-                className="w-full text-left rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
-              >
-                🚪 ออกจากระบบ
-              </button>
+              <>
+                <Link
+                  href="/change-password"
+                  className="block rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-700 hover:text-white text-center"
+                >
+                  🔑 เปลี่ยนรหัสผ่าน
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+                >
+                  🚪 ออกจากระบบ
+                </button>
+              </>
             ) : (
               <Link
                 href="/login"
