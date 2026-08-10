@@ -101,7 +101,7 @@ export default function AdminMilestonesPage() {
       className="min-h-screen bg-[#05070d] p-6 text-slate-200"
       style={{
         backgroundImage:
-          'radial-gradient(circle at 1px 1px, rgba(143, 144, 146, 0.74) 1px, transparent 0)',
+          'radial-gradient(circle at 1px 1px, rgba(246, 247, 248, 0.94) 1px, transparent 0)',
         backgroundSize: '28px 28px',
       }}
     >
