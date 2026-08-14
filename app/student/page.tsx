@@ -9,7 +9,7 @@ type StudentData = {
   group_name: string
   project: string
   progress: number
-  status: string // 'pending' | 'approved' | 'rejected' | 'no_group'
+  status: string // 'pending' | 'waiting_review' | 'checked' | 'rejected' | 'no_group'
   displayStatus: string
   comment?: string
   group_id?: number | null
@@ -250,8 +250,10 @@ export default function StudentPage() {
 
   if (!student) return null
 
-  // 🟢 ปรับเงื่อนไขการปลดล็อก: ยอมให้ส่งงานได้ถ้าผ่าน (approved) หรือถูกสั่งให้แก้ไข (rejected) หรือกำลังรอตรวจ (pending)
-  const canSubmit = student.status === 'approved' || student.status === 'rejected' || student.status === 'pending'
+  // 🟢 ปลดล็อกให้ส่งงานได้ทุกสถานะระหว่างทาง (pending / waiting_review / checked / rejected)
+  // ล็อกเฉพาะกรณี "ยังไม่มีกลุ่ม" หรือ "โปรเจกต์เสร็จสมบูรณ์แล้ว" (100% ถูกตรวจแล้ว) เท่านั้น
+  const isProjectCompleted = student.status === 'checked' && student.progress >= 100
+  const canSubmit = student.status !== 'no_group' && !isProjectCompleted
 
   return (
     <main
@@ -312,6 +314,33 @@ export default function StudentPage() {
             <h3 className="font-bold flex items-center gap-2">⏳ โครงงานอยู่ระหว่างรออาจารย์ตรวจสอบ</h3>
             <p className="mt-1 text-xs text-sky-300/80">
               คุณสามารถส่งรายงานความคืบหน้าเพิ่มเติม หรือแก้ไขข้อมูลได้
+            </p>
+          </div>
+        )}
+
+        {student.status === 'waiting_review' && (
+          <div className="rounded-2xl border border-cyan-500/40 bg-cyan-500/10 p-5 text-cyan-200 backdrop-blur-xl">
+            <h3 className="font-bold flex items-center gap-2">🔍 งานล่าสุดของคุณอยู่ระหว่างรออาจารย์ตรวจ</h3>
+            <p className="mt-1 text-xs text-cyan-300/80">
+              คุณยังส่งรายงานความคืบหน้ารอบถัดไปได้ตามปกติ
+            </p>
+          </div>
+        )}
+
+        {student.status === 'checked' && !isProjectCompleted && (
+          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-emerald-200 backdrop-blur-xl">
+            <h3 className="font-bold flex items-center gap-2">✅ อาจารย์ตรวจงานรอบล่าสุดแล้ว</h3>
+            <p className="mt-1 text-xs text-emerald-300/80">
+              คุณสามารถส่งรายงานความคืบหน้ารอบถัดไปได้เลย
+            </p>
+          </div>
+        )}
+
+        {isProjectCompleted && (
+          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-emerald-200 backdrop-blur-xl">
+            <h3 className="font-bold flex items-center gap-2">🎉 โครงงานเสร็จสมบูรณ์แล้ว</h3>
+            <p className="mt-1 text-xs text-emerald-300/80">
+              งาน 100% ได้รับการตรวจเรียบร้อยแล้ว ฟอร์มส่งงานถูกปิดการใช้งาน
             </p>
           </div>
         )}
@@ -386,7 +415,7 @@ export default function StudentPage() {
               <span className="text-xs font-mono text-slate-400">สถานะอนุมัติ:</span>
               <span
                 className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${
-                  student.status === 'approved'
+                  student.status === 'checked'
                     ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
                     : student.status === 'rejected'
                     ? 'border-rose-400/30 bg-rose-400/10 text-rose-300'
@@ -538,7 +567,7 @@ export default function StudentPage() {
             <label className="mb-2 block text-xs font-mono text-slate-400">
               📎 แนบไฟล์เอกสาร/รายงาน (PDF, DOCX, ZIP หรือรูปภาพ)
             </label>
-            <input
+            <input 
               type="file"
               disabled={!canSubmit}
               onChange={(e) => setFile(e.target.files?.[0] || null)}

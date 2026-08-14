@@ -139,8 +139,16 @@ export async function PATCH(request: Request) {
         .select('student_id')
         .eq('group_id', groupId)
 
-      const statusLabel =
-        targetStatus === 'approved' ? '✅ โครงงานของคุณได้รับการอนุมัติแล้ว' : '❌ โครงงานของคุณถูกส่งกลับให้แก้ไข'
+      // 🟢 ปรับเงื่อนไขแยกตามสถานะจริง เพื่อให้แจ้งเตือนถูกต้อง (รองรับ 'checked')
+      let statusLabel = ''
+      if (targetStatus === 'approved') {
+        statusLabel = '✅ โครงงานของคุณได้รับการอนุมัติแล้ว'
+      } else if (targetStatus === 'checked') {
+        statusLabel = '✅ โครงงานของคุณได้รับการตรวจเรียบร้อยแล้ว'
+      } else {
+        statusLabel = '❌ โครงงานของคุณถูกส่งกลับให้แก้ไข'
+      }
+
       const message = targetComment ? `${statusLabel}: ${targetComment}` : statusLabel
 
       if (members && members.length > 0) {

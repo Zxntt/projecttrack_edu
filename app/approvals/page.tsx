@@ -35,7 +35,9 @@ export default function TeacherApprovalsPage() {
   const router = useRouter()
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending')
+  
+  // 🟢 เพิ่ม 'rejected' เข้าไปใน Type เพื่อให้รองรับสถานะถูกปฏิเสธ
+  const [filter, setFilter] = useState<'pending' | 'waiting_review' | 'in_progress' | 'rejected' | 'all'>('pending')
 
   // State สำหรับ Modal ปฏิเสธ/ให้แก้ไข
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
@@ -127,7 +129,6 @@ export default function TeacherApprovalsPage() {
       const data = await res.json()
 
       if (data.success) {
-        // อัปเดต state ในหน้าให้ตรงกับที่บันทึกไปโดยไม่ต้องโหลดใหม่ทั้งหมด
         setGroups((prev) =>
           prev.map((g) => ({
             ...g,
@@ -147,34 +148,32 @@ export default function TeacherApprovalsPage() {
     }
   }
 
-  // ฟังก์ชันกด "อนุมัติ"
+  // 🟢 ฟังก์ชันกดเปลี่ยนสถานะฝั่งซ้าย (รอตรวจ <-> ตรวจแล้ว)
   const handleApprove = async (groupId: number) => {
-    if (!confirm('ยืนยันการอนุมัติหัวข้อโครงงานนี้ใช่หรือไม่?')) return
-
-    setActionLoading(true)
+    setLoading(true)
     try {
       const res = await fetch('/api/approvals', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           groupId,
-          status: 'approved',
-          comment: 'อนุมัติหัวข้อโครงงานเรียบร้อยแล้ว',
+          status: 'in_progress', 
+          comment: 'ตรวจงานเรียบร้อยแล้ว',
         }),
       })
 
       const data = await res.json()
       if (res.ok && data.success) {
-        alert('✨ อนุมัติกลุ่มโครงงานเรียบร้อยแล้ว!')
-        setFilter('approved')
+        alert('✨ บันทึกสถานะ "ตรวจแล้ว" เรียบร้อย!')
+        fetchApprovals()
       } else {
-        alert(data.error || 'เกิดข้อผิดพลาดในการอนุมัติ')
+        alert(data.error || 'เกิดข้อผิดพลาดในการอัปเดตสถานะ')
       }
     } catch (error) {
       console.error(error)
       alert('เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์')
     } finally {
-      setActionLoading(false)
+      setLoading(false)
     }
   }
 
@@ -208,7 +207,7 @@ export default function TeacherApprovalsPage() {
       if (res.ok && data.success) {
         alert('ส่งข้อเสนอแนะให้แก้ไขเรียบร้อยแล้ว')
         setRejectModalOpen(false)
-        setFilter('rejected')
+        fetchApprovals()
       } else {
         alert(data.error || 'เกิดข้อผิดพลาด')
       }
@@ -241,7 +240,6 @@ export default function TeacherApprovalsPage() {
             </p>
           </div>
 
-          {/* 🟢 รวมปุ่มให้อยู่ในกลุ่มเดียวกัน */}
           <div className="flex gap-2">
             <button
               onClick={() => router.push('/')}
@@ -262,18 +260,18 @@ export default function TeacherApprovalsPage() {
           </div>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex gap-2 border-b border-slate-800 pb-3">
+        {/* 🟢 Filter Tabs (เพิ่ม Tab ถูกปฏิเสธแล้ว) */}
+        <div className="flex gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
           {[
-            { id: 'pending', label: '⏳ รออนุมัติ' },
-            { id: 'approved', label: '✅ อนุมัติแล้ว' },
-            { id: 'rejected', label: '❌ ปฏิเสธ/รอแก้ไข' },
+            { id: 'pending', label: '⏳ รออนุมัติงาน/โครงงาน' },
+            { id: 'in_progress', label: '✅ ตรวจแล้ว' },
+            { id: 'rejected', label: '❌ แก้ไขงาน' },
             { id: 'all', label: '📁 ทั้งหมด' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id as any)}
-              className={`rounded-xl px-4 py-2 text-xs font-mono font-medium transition ${
+              className={`rounded-xl px-4 py-2 text-xs font-mono font-medium transition whitespace-nowrap ${
                 filter === tab.id
                   ? 'border border-amber-400/40 bg-amber-400/20 text-amber-300'
                   : 'border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-slate-200'
@@ -305,9 +303,16 @@ export default function TeacherApprovalsPage() {
                     <h3 className="text-lg font-bold text-slate-100">
                       {group.groupName}
                     </h3>
-                    <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-0.5 text-xs font-mono text-cyan-300">
-                      {group.className}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {group.status === 'rejected' && (
+                        <span className="rounded-full border border-rose-500/30 bg-rose-500/20 px-3 py-0.5 text-xs font-mono text-rose-300">
+                          ถูกปฏิเสธ
+                        </span>
+                      )}
+                      <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-0.5 text-xs font-mono text-cyan-300">
+                        {group.className}
+                      </span>
+                    </div>
                   </div>
 
                   {getOverdueMilestone(group.progress) && (
@@ -340,7 +345,7 @@ export default function TeacherApprovalsPage() {
                     </ul>
                   </div>
 
-                  {/* 📎 แสดงปุ่มเปิดดู/ดาวน์โหลดไฟล์รายงานที่นักศึกษาแนบมา */}
+                  {/* 📎 แสดงไฟล์แนบ */}
                   {group.fileUrl ? (
                     <div className="mt-3">
                       <a
@@ -364,7 +369,7 @@ export default function TeacherApprovalsPage() {
                     </div>
                   )}
 
-                  {/* 🟢 ประวัติการส่งงานทีละรอบ + คอมเมนต์แยกต่อรอบ */}
+                  {/* 🟢 ประวัติการส่งงานทีละรอบ */}
                   {group.reports && group.reports.length > 0 && (
                     <div className="mt-3">
                       <button
@@ -444,11 +449,16 @@ export default function TeacherApprovalsPage() {
                 <div className="mt-5 flex gap-3 border-t border-slate-800/60 pt-4">
                   <button
                     onClick={() => handleApprove(group.id)}
-                    disabled={actionLoading || group.status === 'approved'}
-                    className="flex-1 rounded-xl border border-emerald-400/30 bg-emerald-500/10 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40"
+                    disabled={actionLoading || group.status === 'in_progress'}
+                    className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition ${
+                      group.status === 'in_progress'
+                        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300 disabled:opacity-80'
+                        : 'border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                    }`}
                   >
-                    {group.status === 'approved' ? '✅ อนุมัติแล้ว' : '✅ อนุมัติโครงงาน'}
+                    {group.status === 'in_progress' ? '✅ ตรวจแล้ว' : '🔍 รอตรวจ'}
                   </button>
+
                   <button
                     onClick={() => handleOpenRejectModal(group.id)}
                     disabled={actionLoading}

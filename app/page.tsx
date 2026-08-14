@@ -18,13 +18,6 @@ type Group = {
   members?: Member[]
 }
 
-type HistoryPoint = {
-  time: string
-  value: number
-}
-
-const MAX_HISTORY = 20
-
 function statusStyle(status: string) {
   switch (status) {
     case 'ผ่าน':
@@ -49,29 +42,45 @@ function getStatusLabel(status: string) {
   return status || 'ยังไม่ระบุ'
 }
 
+// 🟢 คำนวณสถิติของกลุ่มในแต่ละห้อง
+function calcRoomStats(list: Group[], milestones: any[]) {
+  const total = list.length
+  const submitted = list.filter((g) => Number(g.progress || 0) > 0).length
+  const pending = list.filter((g) => g.status === 'รอตรวจ' || g.status === 'pending').length
+  const approved = list.filter((g) => {
+    const st = (g.status || '').toLowerCase()
+    return st === 'approved' || g.status === 'ผ่าน' || g.status === 'เสร็จสมบูรณ์'
+  }).length
+  const rejected = list.filter((g) => {
+    const st = (g.status || '').toLowerCase()
+    return st === 'rejected' || g.status === 'ต้องแก้ไข'
+  }).length
+  const other = Math.max(total - approved - pending - rejected, 0)
+
+  const today = new Date().toISOString().slice(0, 10)
+  const overdue = list.filter((g) =>
+    milestones.some(
+      (m) => m.due_date && m.due_date < today && Number(m.percent) > Number(g.progress || 0)
+    )
+  ).length
+
+  const average =
+    total > 0 ? list.reduce((sum, g) => sum + Number(g.progress || 0), 0) / total : 0
+
+  return { total, submitted, pending, approved, rejected, other, overdue, average }
+}
+
 export default function Home() {
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
-  const [history, setHistory] = useState<HistoryPoint[]>([])
   const [teacherName, setTeacherName] = useState<string>('')
-
-  // 🟢 ไมล์สโตน (เฟสโครงงาน) ใช้คำนวณว่ากลุ่มไหนเลยกำหนดส่งแล้วบ้าง
   const [milestones, setMilestones] = useState<any[]>([])
-
-  const fetchMilestones = async () => {
-    try {
-      const res = await fetch('/api/milestones')
-      const data = await res.json().catch(() => null)
-      if (data?.success) setMilestones(data.milestones || [])
-    } catch (error) {
-      console.error('Fetch milestones error:', error)
-    }
-  }
 
   // 🔍 State สำหรับ Search & Filter
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
   const [sortBy, setSortBy] = useState<'id-desc' | 'progress-desc' | 'progress-asc'>('id-desc')
+  const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all')
 
   const router = useRouter()
 
@@ -95,26 +104,21 @@ export default function Home() {
     }
   }, [router])
 
+  const fetchMilestones = async () => {
+    try {
+      const res = await fetch('/api/milestones')
+      const data = await res.json().catch(() => null)
+      if (data?.success) setMilestones(data.milestones || [])
+    } catch (error) {
+      console.error('Fetch milestones error:', error)
+    }
+  }
+
   const fetchGroups = async () => {
     try {
       const res = await fetch('/api/groups')
       const data: Group[] = await res.json()
       setGroups(data)
-
-      const avg =
-        data.length > 0
-          ? data.reduce((sum, g) => sum + Number(g.progress || 0), 0) / data.length
-          : 0
-
-      const point: HistoryPoint = {
-        time: new Date().toLocaleTimeString('th-TH', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        value: Math.round(avg),
-      }
-
-      setHistory((prev) => [...prev, point].slice(-MAX_HISTORY))
     } catch (error) {
       console.error(error)
     } finally {
@@ -132,27 +136,19 @@ export default function Home() {
     fetchMilestones()
   }, [])
 
-  const average =
-    groups.length > 0
-      ? groups.reduce((sum, g) => sum + Number(g.progress || 0), 0) / groups.length
-      : 0
+  // 🟣 แยกกลุ่มตามหมวด ปวส.2 สายตรง / ปวส.2 ม.6
+  const directGroups = groups.filter((g) => (g.class_name || '').includes('สายตรง'))
+  const m6Groups = groups.filter(
+    (g) => (g.class_name || '').includes('ม.6') && !(g.class_name || '').includes('สายตรง')
+  )
 
-  const submitted = groups.filter((g) => Number(g.progress) > 0).length
-  const pending = groups.filter((g) => g.status === 'รอตรวจ' || g.status === 'pending').length
-  const approved = groups.filter((g) => {
-    const st = (g.status || '').toLowerCase()
-    return st === 'approved' || g.status === 'ผ่าน' || g.status === 'เสร็จสมบูรณ์'
-  }).length
+  const directStats = calcRoomStats(directGroups, milestones)
+  const m6Stats = calcRoomStats(m6Groups, milestones)
 
-  // 🟢 นับกลุ่มที่ "เลยกำหนดส่ง" อย่างน้อย 1 ไมล์สโตน (มีกำหนดส่งที่ผ่านมาแล้ว แต่ progress ยังไปไม่ถึง)
-  const today = new Date().toISOString().slice(0, 10)
-  const overdue = groups.filter((g) =>
-    milestones.some(
-      (m) => m.due_date && m.due_date < today && Number(m.percent) > Number(g.progress || 0)
-    )
-  ).length
+  const uniqueClassNames = Array.from(
+    new Set(groups.map((g) => g.class_name).filter(Boolean))
+  ) as string[]
 
-  // 🎯 Filter & Sort Logic
   const filteredGroups = groups
     .filter((g) => {
       const matchSearch =
@@ -171,7 +167,12 @@ export default function Home() {
       if (statusFilter === 'approved') matchStatus = st === 'approved' || st === 'ผ่าน' || st === 'เสร็จสมบูรณ์'
       if (statusFilter === 'rejected') matchStatus = st === 'rejected' || st === 'ต้องแก้ไข'
 
-      return matchSearch && matchStatus
+      let matchClass = true
+      if (selectedClassFilter !== 'all') {
+        matchClass = g.class_name === selectedClassFilter
+      }
+
+      return matchSearch && matchStatus && matchClass
     })
     .sort((a, b) => {
       if (sortBy === 'progress-desc') return Number(b.progress || 0) - Number(a.progress || 0)
@@ -201,7 +202,7 @@ export default function Home() {
         backgroundSize: '28px 28px',
       }}
     >
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-8">
         {/* Header */}
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -229,7 +230,7 @@ export default function Home() {
 
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={fetchGroups}
+              onClick={() => { fetchGroups(); fetchMilestones(); }}
               className="group flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 font-medium text-cyan-300 shadow-[0_0_20px_-6px_rgba(34,211,238,0.6)] transition hover:bg-cyan-400/20"
             >
               <span className="transition group-active:rotate-180">🔄</span>
@@ -259,58 +260,17 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Trend chart */}
-        <AverageTrendChart history={history} average={average} />
-
-        {/* Stats */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-6">
-          <StatCard
-            icon="🧩"
-            label="จำนวนกลุ่มทั้งหมด"
-            value={groups.length}
-            unit="กลุ่ม"
-            accent="from-slate-400 to-slate-200"
-            glow="shadow-[0_0_25px_-8px_rgba(148,163,184,0.5)]"
+        {/* 🟢 ส่วนแสดงผลแบบแยกห้องเรียน (กราฟวงกลมพร้อมสถิติตามภาพตัวอย่าง) */}
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <ClassStatusDonut
+            title="🎓 ปวส.2 สายตรง"
+            stats={directStats}
+            accentColor="cyan"
           />
-          <StatCard
-            icon="📡"
-            label="ส่งความคืบหน้าแล้ว"
-            value={submitted}
-            unit="กลุ่ม"
-            accent="from-emerald-400 to-emerald-200"
-            glow="shadow-[0_0_25px_-8px_rgba(52,211,153,0.6)]"
-          />
-          <StatCard
-            icon="⏳"
-            label="รออนุมัติ / ตรวจสอบ"
-            value={pending}
-            unit="กลุ่ม"
-            accent="from-amber-400 to-amber-200"
-            glow="shadow-[0_0_25px_-8px_rgba(251,191,36,0.6)]"
-          />
-          <StatCard
-            icon="✅"
-            label="ผ่านการอนุมัติแล้ว"
-            value={approved}
-            unit="กลุ่ม"
-            accent="from-teal-400 to-teal-200"
-            glow="shadow-[0_0_25px_-8px_rgba(45,212,191,0.6)]"
-          />
-          <StatCard
-            icon="🚨"
-            label="เลยกำหนดส่ง"
-            value={overdue}
-            unit="กลุ่ม"
-            accent="from-rose-400 to-rose-200"
-            glow="shadow-[0_0_25px_-8px_rgba(251,113,133,0.6)]"
-          />
-          <StatCard
-            icon="📊"
-            label="เฉลี่ยทั้งห้อง"
-            value={`${Math.round(average)}%`}
-            unit="ความคืบหน้า"
-            accent="from-cyan-400 to-violet-300"
-            glow="shadow-[0_0_25px_-8px_rgba(34,211,238,0.6)]"
+          <ClassStatusDonut
+            title="🎓 ปวส.2 ม.6"
+            stats={m6Stats}
+            accentColor="violet"
           />
         </section>
 
@@ -326,7 +286,6 @@ export default function Home() {
               </p>
             </div>
 
-            {/* 🔍 Search Input & Sort Options */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative flex-1 min-w-[240px]">
                 <input
@@ -347,6 +306,19 @@ export default function Home() {
               </div>
 
               <select
+                value={selectedClassFilter}
+                onChange={(e) => setSelectedClassFilter(e.target.value)}
+                className="rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-300 font-mono focus:border-cyan-400 focus:outline-none"
+              >
+                <option value="all">ห้องเรียนทั้งหมด</option>
+                {uniqueClassNames.map((cName, idx) => (
+                  <option key={idx} value={cName}>
+                    {cName}
+                  </option>
+                ))}
+              </select>
+
+              <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
                 className="rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs text-slate-300 font-mono focus:border-cyan-400 focus:outline-none"
@@ -358,7 +330,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 🏷️ Filter Tabs */}
           <div className="flex flex-wrap gap-2 border-b border-slate-800/80 pb-3">
             {[
               { id: 'all', label: '📁 ทั้งหมด' },
@@ -380,7 +351,6 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto rounded-xl border border-slate-800/60">
             <table className="min-w-full divide-y divide-slate-800/80">
               <thead className="bg-slate-950/60">
@@ -415,11 +385,7 @@ export default function Home() {
                   </tr>
                 ) : (
                   filteredGroups.map((group) => (
-                    <tr
-                      key={group.id}
-                      className="transition hover:bg-slate-800/40"
-                    >
-                      {/* ชื่อกลุ่ม + แท็กห้องเรียน */}
+                    <tr key={group.id} className="transition hover:bg-slate-800/40">
                       <td className="px-4 py-4 font-medium text-slate-100">
                         <div>{group.name}</div>
                         {group.class_name && (
@@ -429,12 +395,10 @@ export default function Home() {
                         )}
                       </td>
 
-                      {/* หัวข้อโปรเจกต์ */}
                       <td className="px-4 py-4 text-slate-300 font-medium max-w-xs truncate">
                         {group.project}
                       </td>
 
-                      {/* รายชื่อผู้จัดทำ (สมาชิกในกลุ่ม) */}
                       <td className="px-4 py-4 text-slate-400 text-sm">
                         {group.members && group.members.length > 0 ? (
                           <ul className="space-y-1">
@@ -454,7 +418,6 @@ export default function Home() {
                         )}
                       </td>
 
-                      {/* ความคืบหน้า */}
                       <td className="px-4 py-4">
                         <div className="flex items-center gap-3">
                           <div className="h-2 w-28 overflow-hidden rounded-full bg-slate-800">
@@ -469,7 +432,6 @@ export default function Home() {
                         </div>
                       </td>
 
-                      {/* สถานะ */}
                       <td className="px-4 py-4">
                         <span
                           className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusStyle(
@@ -480,7 +442,6 @@ export default function Home() {
                         </span>
                       </td>
 
-                      {/* Action Button */}
                       <td className="px-4 py-4 text-center">
                         <button
                           onClick={() => router.push('/approvals')}
@@ -528,267 +489,121 @@ function useCountUp(target: number, duration = 700) {
   return value
 }
 
-function AverageTrendChart({
-  history,
-  average,
+function ClassStatusDonut({
+  title,
+  stats,
+  accentColor = 'cyan',
 }: {
-  history: HistoryPoint[]
-  average: number
+  title: string
+  stats: ReturnType<typeof calcRoomStats>
+  accentColor?: 'cyan' | 'violet'
 }) {
-  const displayAvg = useCountUp(Math.round(average))
+  const { total, submitted, pending, approved, rejected, average } = stats
+  const displayTotal = useCountUp(total)
 
-  const width = 800
-  const height = 220
-  const padX = 40
-  const padY = 24
-  const chartW = width - padX * 2
-  const chartH = height - padY * 2
+  const segments = [
+    { label: 'ผ่านอนุมัติ', value: approved, color: '#34d399' },
+    { label: 'รอตรวจ', value: pending, color: '#fbbf24' },
+    { label: 'ต้องแก้ไข', value: rejected, color: '#fb7185' },
+    { label: 'ยังไม่ส่ง / อื่นๆ', value: stats.other, color: '#334155' },
+  ].filter((seg) => seg.value > 0)
 
-  const points =
-    history.length > 1
-      ? history
-      : history.length === 1
-        ? [{ time: '', value: history[0].value }, history[0]]
-        : []
+  const size = 140
+  const cx = size / 2
+  const cy = size / 2
+  const r = size / 2 - 8
+  const strokeWidth = 10
 
-  const maxV = 100
-  const minV = 0
-
-  const toXY = (i: number, v: number) => {
-    const x =
-      points.length > 1
-        ? padX + (i / (points.length - 1)) * chartW
-        : padX + chartW / 2
-    const y = padY + chartH - ((v - minV) / (maxV - minV)) * chartH
-    return { x, y }
-  }
-
-  const linePath = points
-    .map((p, i) => {
-      const { x, y } = toXY(i, p.value)
-      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
-    })
-    .join(' ')
-
-  const areaPath =
-    points.length > 0
-      ? `${linePath} L ${toXY(points.length - 1, points[points.length - 1].value).x} ${padY + chartH} L ${toXY(0, points[0].value).x} ${padY + chartH} Z`
-      : ''
-
-  const gridLines = [0, 25, 50, 75, 100]
-  const last = points[points.length - 1]
+  let cumulative = 0
+  const slices = segments.map((seg) => {
+    const startAngle = (cumulative / (total || 1)) * 360
+    cumulative += seg.value
+    const endAngle = (cumulative / (total || 1)) * 360
+    const sweep = endAngle - startAngle
+    return { ...seg, startAngle, endAngle, sweep }
+  })
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl">
-      <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-cyan-400 via-sky-400 to-violet-400" />
-
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-            📈 แนวโน้มค่าเฉลี่ยทั้งห้อง
-          </h2>
-          <p className="font-mono text-xs text-slate-500">
-            อัปเดตทุกครั้งที่รีเฟรชข้อมูล · เก็บย้อนหลัง {MAX_HISTORY} จุด
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5">
-          <span className="font-mono text-2xl font-bold tabular-nums text-cyan-300">
-            {displayAvg}%
-          </span>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-cyan-400/70">
-            current avg
-          </span>
-        </div>
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl space-y-4">
+      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+        <h2 className={`flex items-center gap-2 text-lg font-semibold ${accentColor === 'cyan' ? 'text-cyan-300' : 'text-violet-300'}`}>
+          {title}
+        </h2>
+        <span className={`rounded-full border px-2.5 py-0.5 text-xs font-mono ${accentColor === 'cyan' ? 'border-cyan-400/30 bg-cyan-400/10 text-cyan-300' : 'border-violet-400/30 bg-violet-400/10 text-violet-300'}`}>
+          {total} กลุ่ม
+        </span>
       </div>
 
-      {points.length === 0 ? (
-        <div className="flex h-40 items-center justify-center font-mono text-sm text-slate-600">
-          ยังไม่มีข้อมูลแนวโน้ม · รอรีเฟรชครั้งถัดไป
-        </div>
-      ) : (
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="h-56 w-full"
-          preserveAspectRatio="none"
-        >
-          <defs>
-            <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#22d3ee" />
-              <stop offset="100%" stopColor="#818cf8" />
-            </linearGradient>
-            <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#22d3ee" stopOpacity="0" />
-            </linearGradient>
-            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          {gridLines.map((g) => {
-            const y = padY + chartH - (g / 100) * chartH
-            return (
-              <g key={g}>
-                <line
-                  x1={padX}
-                  x2={width - padX}
-                  y1={y}
-                  y2={y}
-                  stroke="rgba(148,163,184,0.12)"
-                  strokeWidth={1}
-                />
-                <text
-                  x={padX - 8}
-                  y={y + 3}
-                  textAnchor="end"
-                  className="fill-slate-600"
-                  fontSize={10}
-                  fontFamily="monospace"
-                >
-                  {g}
-                </text>
-              </g>
-            )
-          })}
-
-          {areaPath && (
-            <path
-              key={`area-${history.length}`}
-              d={areaPath}
-              fill="url(#areaGradient)"
-              className="chart-fade-in"
+      <div className="flex flex-col sm:flex-row items-center gap-6">
+        <div className="relative shrink-0 flex items-center justify-center">
+          <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
+            <circle
+              cx={cx}
+              cy={cy}
+              r={r}
+              fill="transparent"
+              stroke="#1e293b"
+              strokeWidth={strokeWidth}
             />
-          )}
+            {slices.map((s, i) => {
+              const circumference = 2 * Math.PI * r
+              const strokeDasharray = `${(s.sweep / 360) * circumference} ${circumference}`
+              let prevAngle = 0
+              for (let j = 0; j < i; j++) {
+                prevAngle += slices[j].sweep
+              }
+              const strokeDashoffset = -((prevAngle / 360) * circumference)
 
-          <path
-            key={`line-${history.length}`}
-            d={linePath}
-            pathLength={1}
-            fill="none"
-            stroke="url(#lineGradient)"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            filter="url(#glow)"
-            className="chart-draw-line"
-          />
-
-          {points.map((p, i) => {
-            const { x, y } = toXY(i, p.value)
-            const isLast = i === points.length - 1
-            return (
-              <g key={`${p.time}-${i}`}>
-                {isLast && (
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={5}
-                    fill="none"
-                    stroke="#22d3ee"
-                    strokeWidth={1.5}
-                    className="chart-radar-ping"
-                  />
-                )}
+              return (
                 <circle
-                  cx={x}
-                  cy={y}
-                  r={isLast ? 5 : 3}
-                  fill={isLast ? '#22d3ee' : '#0f172a'}
-                  stroke="#22d3ee"
-                  strokeWidth={1.5}
-                  className={isLast ? 'chart-point-pop' : undefined}
+                  key={i}
+                  cx={cx}
+                  cy={cy}
+                  r={r}
+                  fill="transparent"
+                  stroke={s.color}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={strokeDasharray}
+                  strokeDashoffset={strokeDashoffset}
+                  className="transition-all duration-500"
                 />
-              </g>
-            )
-          })}
-        </svg>
-      )}
+              )
+            })}
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+            <span className="font-mono text-2xl font-bold text-slate-100">{displayTotal}</span>
+            <span className="text-[10px] font-mono text-slate-400">กลุ่มทั้งหมด</span>
+          </div>
+        </div>
 
-      {last && (
-        <p className="mt-1 text-right font-mono text-[11px] text-slate-500">
-          last update: {last.time || '—'}
-        </p>
-      )}
+        <div className="flex-1 w-full space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono text-xs">
+            <StatBox color="#38bdf8" label="ส่งความคืบหน้าแล้ว" value={submitted} />
+            <StatBox color="#fbbf24" label="รออนุมัติ / ตรวจสอบ" value={pending} />
+            <StatBox color="#34d399" label="ผ่านการอนุมัติแล้ว" value={approved} />
+            <StatBox color="#fb7185" label="ต้องแก้ไข" value={rejected} />
+          </div>
 
-      <style>{`
-        .chart-draw-line {
-          stroke-dasharray: 1;
-          stroke-dashoffset: 1;
-          animation: chart-draw 900ms ease-out forwards;
-        }
-        @keyframes chart-draw {
-          to { stroke-dashoffset: 0; }
-        }
-
-        .chart-fade-in {
-          opacity: 0;
-          animation: chart-fade 900ms ease-out 200ms forwards;
-        }
-        @keyframes chart-fade {
-          to { opacity: 1; }
-        }
-
-        .chart-point-pop {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: chart-pop 500ms ease-out;
-        }
-        @keyframes chart-pop {
-          0% { transform: scale(0); }
-          70% { transform: scale(1.4); }
-          100% { transform: scale(1); }
-        }
-
-        .chart-radar-ping {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: chart-radar 1.8s ease-out infinite;
-        }
-        @keyframes chart-radar {
-          0% { transform: scale(0.6); opacity: 0.9; }
-          100% { transform: scale(2.6); opacity: 0; }
-        }
-      `}</style>
-    </section>
+          <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2.5 font-mono text-xs">
+            <span className="flex items-center gap-2 text-slate-300">
+              <span>📊</span> เฉลี่ยทั้งห้อง
+            </span>
+            <span className="font-bold text-cyan-300 text-sm">{Math.round(average)}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-  unit,
-  accent,
-  glow,
-}: {
-  icon: string
-  label: string
-  value: string | number
-  unit: string
-  accent: string
-  glow: string
-}) {
+function StatBox({ color, label, value }: { color: string; label: string; value: number }) {
   return (
-    <div
-      className={`relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl ${glow}`}
-    >
-      <div
-        className={`absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r ${accent}`}
-      />
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-slate-400">{label}</p>
-        <span className="text-lg opacity-80">{icon}</span>
-      </div>
-      <p
-        className={`mt-2 bg-gradient-to-r ${accent} bg-clip-text font-mono text-3xl font-bold text-transparent`}
-      >
-        {value}
-      </p>
-      <p className="mt-1 text-sm text-slate-500">{unit}</p>
+    <div className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/40 px-3.5 py-2">
+      <span className="flex items-center gap-2 text-slate-400 text-[11px]">
+        <span className="h-2.5 w-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)]" style={{ backgroundColor: color }} />
+        {label}
+      </span>
+      <span className="font-bold text-slate-100">{value}</span>
     </div>
   )
 }
