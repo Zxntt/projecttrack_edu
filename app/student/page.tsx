@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 type StudentData = {
@@ -27,6 +27,7 @@ type ProgressReport = {
 
 export default function StudentPage() {
   const router = useRouter()
+  const fileInputRef = useRef<HTMLInputElement>(null) // 🟢 เพิ่ม useRef สำหรับจัดการ input file
 
   const [student, setStudent] = useState<StudentData | null>(null)
   const [progress, setProgress] = useState('25')
@@ -43,10 +44,27 @@ export default function StudentPage() {
   // 🟢 ไมล์สโตน (เฟสโครงงาน) — ชื่อ/กำหนดส่งของแต่ละเปอร์เซ็นต์
   const [milestones, setMilestones] = useState<any[]>([])
 
+  // 🟢 กำหนดขนาดไฟล์สูงสุด (10MB)
+  const MAX_FILE_SIZE = 10 * 1024 * 1024
+
+  // 🟢 ฟังก์ชันตรวจสอบขนาดไฟล์
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null
+    if (selectedFile && selectedFile.size > MAX_FILE_SIZE) {
+      alert('⚠️ ไฟล์ขนาดใหญ่เกินไป (จำกัดไม่เกิน 10MB)')
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      setFile(null)
+      return
+    }
+    setFile(selectedFile)
+  }
+
   useEffect(() => {
     const fetchMilestones = async () => {
       try {
-        const res = await fetch('/api/milestones')
+        const res = await fetch('/api/milestones', { cache: 'no-store' })
         const data = await res.json().catch(() => null)
         if (data?.success) setMilestones(data.milestones || [])
       } catch (error) {
@@ -66,7 +84,8 @@ export default function StudentPage() {
       const query = groupId
         ? `group_id=${groupId}`
         : `groupName=${encodeURIComponent(groupName || '')}`
-      const res = await fetch(`/api/progress-reports?${query}`)
+      // 🟢 ป้องกัน Cache เพื่อให้ได้ประวัติล่าสุดเสมอ
+      const res = await fetch(`/api/progress-reports?${query}`, { cache: 'no-store' })
       const data = await res.json().catch(() => null)
 
       if (data?.success) {
@@ -82,7 +101,8 @@ export default function StudentPage() {
 
   const fetchStudentData = async (studentCode: string) => {
     try {
-      const res = await fetch(`/api/student?student_code=${studentCode}`)
+      // 🟢 เพิ่ม { cache: 'no-store' } เพื่อไม่ให้เบราว์เซอร์จำค่าเก่าและอัปเดตเปอร์เซ็นต์ทันที
+      const res = await fetch(`/api/student?student_code=${studentCode}`, { cache: 'no-store' })
       const resJson = await res.json()
 
       if (!res.ok) {
@@ -112,7 +132,6 @@ export default function StudentPage() {
           group_id: groupId,
         })
 
-        // 🟢 หลังได้ข้อมูลกลุ่มแล้ว ไปเช็คว่ากลุ่มนี้เคยส่งงานเปอร์เซ็นต์ไหนไปแล้วบ้าง
         if (groupId || (groupName && groupName !== 'ยังไม่มีกลุ่ม')) {
           fetchSubmissionHistory(groupId, groupName)
         }
@@ -162,7 +181,6 @@ export default function StudentPage() {
     e.preventDefault()
     if (!student) return
 
-    // 🟢 ถ้างานเปอร์เซ็นต์นี้เคยส่งไปแล้ว ให้เตือนก่อนส่งซ้ำ
     if (submittedLevels.includes(Number(progress))) {
       const confirmResend = confirm(
         `⚠️ งาน ${progress}% นี้เคยถูกส่งไปแล้ว ต้องการส่งซ้ำ (อัปเดตข้อมูลใหม่) หรือไม่?`
@@ -190,7 +208,6 @@ export default function StudentPage() {
       const data = await res.json()
 
       if (data.success) {
-        // 🟢 DEBUG: โชว์ให้เห็นชัดๆ ว่าไฟล์ไปถึงเซิร์ฟเวอร์ไหม และบันทึก file_url เป็นอะไร
         const debugInfo = data.debug
           ? `\n\n[Debug]\nไฟล์ที่เซิร์ฟเวอร์ได้รับ: ${
               data.debug.fileDebug?.received
@@ -213,11 +230,14 @@ export default function StudentPage() {
         setDescription('')
         setFile(null)
         setProgress('25')
+        
+        // 🟢 เคลียร์ค่าในช่องเลือกไฟล์หลังจากส่งสำเร็จ
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''
+        }
 
-        // 🟢 ส่งสำเร็จแล้ว รีเฟรชประวัติการส่งงานให้เห็นสถานะล่าสุด
         fetchSubmissionHistory(student.group_id, student.group_name)
       } else {
-        // 🟢 DEBUG: โชว์ debug info ตอน error ด้วย จะได้รู้ว่าติดตรงไหน
         const debugInfo = data.debug
           ? `\n\n[Debug]\nไฟล์ที่เซิร์ฟเวอร์ได้รับ: ${
               data.debug.fileDebug?.received
@@ -250,8 +270,6 @@ export default function StudentPage() {
 
   if (!student) return null
 
-  // 🟢 ปลดล็อกให้ส่งงานได้ทุกสถานะระหว่างทาง (pending / waiting_review / checked / rejected)
-  // ล็อกเฉพาะกรณี "ยังไม่มีกลุ่ม" หรือ "โปรเจกต์เสร็จสมบูรณ์แล้ว" (100% ถูกตรวจแล้ว) เท่านั้น
   const isProjectCompleted = student.status === 'checked' && student.progress >= 100
   const canSubmit = student.status !== 'no_group' && !isProjectCompleted
 
@@ -428,7 +446,7 @@ export default function StudentPage() {
           </div>
         </div>
 
-        {/* Submit Form (ปลดล็อกให้ส่งเมื่อ canSubmit เป็น true) */}
+        {/* Submit Form */}
         <form
           onSubmit={handleSubmit}
           className={`space-y-5 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl transition ${
@@ -486,7 +504,6 @@ export default function StudentPage() {
               })}
             </div>
 
-            {/* 🟢 ชื่อเฟส/กำหนดส่งของเปอร์เซ็นต์ที่เลือกอยู่ */}
             {getMilestone(progress) && (
               <p className="mt-2 text-xs font-mono text-slate-400">
                 📌 {getMilestone(progress)?.name}
@@ -498,7 +515,6 @@ export default function StudentPage() {
               </p>
             )}
 
-            {/* 🟢 แจ้งเตือนถ้างานเปอร์เซ็นต์ที่เลือกอยู่เคยส่งไปแล้ว */}
             {submittedLevels.includes(Number(progress)) && (
               <p className="mt-2 text-xs font-mono text-emerald-400">
                 ✔ งาน {progress}% นี้กลุ่มของคุณส่งไปแล้ว — ถ้าส่งอีกครั้งจะเป็นการอัปเดตข้อมูลเดิม
@@ -506,7 +522,7 @@ export default function StudentPage() {
             )}
           </div>
 
-          {/* 🟢 ประวัติการส่งงานของกลุ่ม */}
+          {/* ประวัติการส่งงานของกลุ่ม */}
           {(historyLoading || reportHistory.length > 0) && (
             <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
               <p className="mb-2 text-xs font-mono uppercase tracking-wider text-slate-500">
@@ -565,12 +581,13 @@ export default function StudentPage() {
           {/* 📁 ช่องแนบไฟล์เอกสารเพิ่มเติม */}
           <div>
             <label className="mb-2 block text-xs font-mono text-slate-400">
-              📎 แนบไฟล์เอกสาร/รายงาน (PDF, DOCX, ZIP หรือรูปภาพ)
+              📎 แนบไฟล์เอกสาร/รายงาน (PDF, DOCX, ZIP หรือรูปภาพ - สูงสุด 10MB)
             </label>
             <input 
               type="file"
+              ref={fileInputRef}
               disabled={!canSubmit}
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              onChange={handleFileChange}
               className="w-full text-xs text-slate-400 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-500/10 file:px-4 file:py-2.5 file:text-xs file:font-semibold file:text-cyan-300 hover:file:bg-cyan-500/20 cursor-pointer rounded-xl border border-slate-800 bg-slate-950/60 p-2"
             />
             {file && (

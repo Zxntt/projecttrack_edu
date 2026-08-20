@@ -13,7 +13,7 @@ export async function GET(req: Request) {
       )
     }
 
-    // 1. ดึงข้อมูลผู้ใช้ก่อน (ไม่ join เพราะฐานข้อมูลยังไม่มี Foreign Key ระหว่าง users.group_id กับ groups.id)
+    // 1. ดึงข้อมูลผู้ใช้ก่อน
     const { data: student, error: userError } = await supabase
       .from('users')
       .select('id, student_code, name, email, role, group_id')
@@ -32,11 +32,34 @@ export async function GET(req: Request) {
     if (student.group_id) {
       const { data: groupData } = await supabase
         .from('groups')
-        .select('name, class_name, project, status, comment')
+        .select('name, class_name, project, status, comment, progress')
         .eq('id', student.group_id)
         .single()
 
       groupInfo = groupData
+    }
+
+    // 🟢 3. ดึงข้อมูลรายงานความคืบหน้า (progress_reports) ของกลุ่มนี้ เพื่อหาเปอร์เซ็นต์และสถานะล่าสุด
+    // 🟢 ใช้ groups.progress เป็นค่าเริ่มต้น/สำรอง เพราะ update-progress จะอัปเดตค่านี้เสมอ
+    //    แม้ progress_reports จะ insert ไม่สำเร็จ (เช่น ตารางไม่มี/RLS บล็อก) เปอร์เซ็นต์ก็จะยังไม่ตกเป็น 0
+    let latestProgress = Number(groupInfo?.progress) || 0
+    let reportStatus = ''
+    let reportComment = ''
+
+    if (student.group_id) {
+      const { data: reports, error: reportError } = await supabase
+        .from('progress_reports')
+        .select('progress, status, teacher_comment, created_at')
+        .eq('group_id', student.group_id)
+        .order('created_at', { ascending: false }) // 🟢 แก้ไข: เรียงจากเวลาล่าสุด (created_at) เพื่อให้ได้งานที่เพิ่งส่งล่าสุดจริงๆ
+
+      if (!reportError && reports && reports.length > 0) {
+        // เอาเปอร์เซ็นต์จากรายงานล่าสุด (ถ้ามี) แต่ถ้าค่าเป็น 0/ว่าง ให้ใช้ groups.progress แทน
+        latestProgress = Number(reports[0].progress) || latestProgress
+
+        reportStatus = reports[0].status || ''
+        reportComment = reports[0].teacher_comment || ''
+      }
     }
 
     // ตรวจสอบสถานะกลุ่ม
@@ -47,14 +70,18 @@ export async function GET(req: Request) {
 
     if (student.group_id && groupInfo) {
       groupStatus = groupInfo.status || 'pending'
-      groupComment = groupInfo.comment || ''
+      groupComment = reportComment || groupInfo.comment || ''
 
-      currentStatus = groupStatus
-      if (currentStatus === 'approved' || currentStatus === 'approvals') {
-        currentStatus = 'approved'
-        displayStatus = '✅ อนุมัติแล้ว'
+      currentStatus = reportStatus || groupStatus
+      
+      // แปลงสถานะให้แสดงผลเป็นภาษาไทยที่เข้าใจง่าย
+      if (currentStatus === 'approved' || currentStatus === 'approvals' || currentStatus === 'checked') {
+        currentStatus = 'checked'
+        displayStatus = '✅ อาจารย์ตรวจแล้ว'
       } else if (currentStatus === 'rejected') {
         displayStatus = '❌ ไม่ผ่าน/รอแก้ไข'
+      } else if (currentStatus === 'waiting_review') {
+        displayStatus = '🔍 รออาจารย์ตรวจ'
       } else {
         displayStatus = '⏳ รออาจารย์อนุมัติ'
       }
@@ -73,7 +100,7 @@ export async function GET(req: Request) {
         status: currentStatus,
         displayStatus: displayStatus,
         comment: groupComment,
-        progress: 0,
+        progress: latestProgress, // 🟢 ส่งค่าเปอร์เซ็นต์จากรายงานล่าสุด
       },
     })
   } catch (error: any) {

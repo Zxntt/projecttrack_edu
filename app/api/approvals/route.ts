@@ -139,14 +139,16 @@ export async function PATCH(request: Request) {
         .select('student_id')
         .eq('group_id', groupId)
 
-      // 🟢 ปรับเงื่อนไขแยกตามสถานะจริง เพื่อให้แจ้งเตือนถูกต้อง (รองรับ 'checked')
+      // 🟢 ปรับเงื่อนไขตรวจสอบสถานะให้แม่นยำ ไม่ให้ตกไปเข้าเงื่อนไขแก้ไขทั้งหมด
       let statusLabel = ''
       if (targetStatus === 'approved') {
         statusLabel = '✅ โครงงานของคุณได้รับการอนุมัติแล้ว'
-      } else if (targetStatus === 'checked') {
+      } else if (targetStatus === 'checked' || targetStatus === 'ตรวจแล้ว' || targetStatus === 'reviewed') {
         statusLabel = '✅ โครงงานของคุณได้รับการตรวจเรียบร้อยแล้ว'
-      } else {
+      } else if (targetStatus === 'rejected' || targetStatus === 'แก้ไข' || targetStatus === 'ต้องแก้ไข') {
         statusLabel = '❌ โครงงานของคุณถูกส่งกลับให้แก้ไข'
+      } else {
+        statusLabel = `ℹ️ สถานะโครงงานเปลี่ยนเป็น: ${targetStatus}`
       }
 
       const message = targetComment ? `${statusLabel}: ${targetComment}` : statusLabel

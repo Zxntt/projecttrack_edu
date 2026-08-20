@@ -19,13 +19,16 @@ type Group = {
 }
 
 function statusStyle(status: string) {
-  switch (status) {
+  const st = (status || '').trim().toLowerCase()
+  switch (st) {
     case 'ผ่าน':
     case 'เสร็จสมบูรณ์':
     case 'approved':
+    case 'checked':
       return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300 shadow-[0_0_12px_-2px_rgba(52,211,153,0.5)]'
     case 'รอตรวจ':
     case 'pending':
+    case 'in_progress':
       return 'border-amber-400/30 bg-amber-400/10 text-amber-300 shadow-[0_0_12px_-2px_rgba(251,191,36,0.5)]'
     case 'ต้องแก้ไข':
     case 'rejected':
@@ -36,9 +39,12 @@ function statusStyle(status: string) {
 }
 
 function getStatusLabel(status: string) {
-  if (status === 'approved' || status === 'ผ่าน') return '✅ ผ่านการอนุมัติ'
-  if (status === 'pending' || status === 'รอตรวจ') return '⏳ รอตรวจ'
-  if (status === 'rejected' || status === 'ต้องแก้ไข') return '❌ ต้องแก้ไข'
+  const st = (status || '').trim().toLowerCase()
+  if (st === 'approved' || st === 'ผ่าน' || st === 'เสร็จสมบูรณ์') return '✅ ผ่านการอนุมัติ'
+  if (st === 'checked') return '✅ อาจารย์ตรวจแล้ว'
+  if (st === 'pending' || st === 'รอตรวจ') return '⏳ รอตรวจ'
+  if (st === 'in_progress') return '⏳ กำลังดำเนินการ'
+  if (st === 'rejected' || st === 'ต้องแก้ไข') return '❌ ต้องแก้ไข'
   return status || 'ยังไม่ระบุ'
 }
 
@@ -46,14 +52,17 @@ function getStatusLabel(status: string) {
 function calcRoomStats(list: Group[], milestones: any[]) {
   const total = list.length
   const submitted = list.filter((g) => Number(g.progress || 0) > 0).length
-  const pending = list.filter((g) => g.status === 'รอตรวจ' || g.status === 'pending').length
+  const pending = list.filter((g) => {
+    const st = (g.status || '').toLowerCase()
+    return st === 'รอตรวจ' || st === 'pending' || st === 'in_progress'
+  }).length
   const approved = list.filter((g) => {
     const st = (g.status || '').toLowerCase()
-    return st === 'approved' || g.status === 'ผ่าน' || g.status === 'เสร็จสมบูรณ์'
+    return st === 'approved' || st === 'checked' || st === 'ผ่าน' || st === 'เสร็จสมบูรณ์'
   }).length
   const rejected = list.filter((g) => {
     const st = (g.status || '').toLowerCase()
-    return st === 'rejected' || g.status === 'ต้องแก้ไข'
+    return st === 'rejected' || st === 'ต้องแก้ไข'
   }).length
   const other = Math.max(total - approved - pending - rejected, 0)
 
@@ -163,8 +172,8 @@ export default function Home() {
 
       const st = (g.status || '').toLowerCase()
       let matchStatus = true
-      if (statusFilter === 'pending') matchStatus = st === 'pending' || st === 'รอตรวจ'
-      if (statusFilter === 'approved') matchStatus = st === 'approved' || st === 'ผ่าน' || st === 'เสร็จสมบูรณ์'
+      if (statusFilter === 'pending') matchStatus = st === 'pending' || st === 'รอตรวจ' || st === 'in_progress'
+      if (statusFilter === 'approved') matchStatus = st === 'approved' || st === 'checked' || st === 'ผ่าน' || st === 'เสร็จสมบูรณ์'
       if (statusFilter === 'rejected') matchStatus = st === 'rejected' || st === 'ต้องแก้ไข'
 
       let matchClass = true
@@ -260,7 +269,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 🟢 ส่วนแสดงผลแบบแยกห้องเรียน (กราฟวงกลมพร้อมสถิติตามภาพตัวอย่าง) */}
+        {/* 🟢 ส่วนแสดงผลแบบแยกห้องเรียน */}
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <ClassStatusDonut
             title="🎓 ปวส.2 สายตรง"

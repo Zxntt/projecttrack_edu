@@ -148,7 +148,7 @@ export default function TeacherApprovalsPage() {
     }
   }
 
-  // 🟢 ฟังก์ชันกดเปลี่ยนสถานะฝั่งซ้าย (รอตรวจ <-> ตรวจแล้ว)
+  // 🟢 ฟังก์ชันกดเปลี่ยนสถานะฝั่งซ้าย (รอตรวจ -> ตรวจแล้ว) แก้ไขให้ส่งสถานะเป็น 'checked' ตรงกับ API
   const handleApprove = async (groupId: number) => {
     setLoading(true)
     try {
@@ -157,7 +157,7 @@ export default function TeacherApprovalsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           groupId,
-          status: 'in_progress', 
+          status: 'checked', 
           comment: 'ตรวจงานเรียบร้อยแล้ว',
         }),
       })
@@ -260,7 +260,7 @@ export default function TeacherApprovalsPage() {
           </div>
         </div>
 
-        {/* 🟢 Filter Tabs (เพิ่ม Tab ถูกปฏิเสธแล้ว) */}
+        {/* 🟢 Filter Tabs */}
         <div className="flex gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
           {[
             { id: 'pending', label: '⏳ รออนุมัติงาน/โครงงาน' },
@@ -293,182 +293,186 @@ export default function TeacherApprovalsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {groups.map((group) => (
-              <div
-                key={group.id}
-                className="flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl transition hover:border-slate-700"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-bold text-slate-100">
-                      {group.groupName}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {group.status === 'rejected' && (
-                        <span className="rounded-full border border-rose-500/30 bg-rose-500/20 px-3 py-0.5 text-xs font-mono text-rose-300">
-                          ถูกปฏิเสธ
+            {groups.map((group) => {
+              const isChecked = group.status === 'checked' || group.status === 'in_progress'
+
+              return (
+                <div
+                  key={group.id}
+                  className="flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl transition hover:border-slate-700"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-bold text-slate-100">
+                        {group.groupName}
+                      </h3>
+                      <div className="flex items-center gap-2">
+                        {group.status === 'rejected' && (
+                          <span className="rounded-full border border-rose-500/30 bg-rose-500/20 px-3 py-0.5 text-xs font-mono text-rose-300">
+                            ถูกปฏิเสธ
+                          </span>
+                        )}
+                        <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-0.5 text-xs font-mono text-cyan-300">
+                          {group.className}
                         </span>
-                      )}
-                      <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-0.5 text-xs font-mono text-cyan-300">
-                        {group.className}
-                      </span>
+                      </div>
                     </div>
-                  </div>
 
-                  {getOverdueMilestone(group.progress) && (
-                    <div className="mt-2 inline-block rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-0.5 text-[10px] font-mono text-rose-300">
-                      🚨 เลยกำหนดเฟส "{getOverdueMilestone(group.progress)?.name}"
-                    </div>
-                  )}
+                    {getOverdueMilestone(group.progress) && (
+                      <div className="mt-2 inline-block rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-0.5 text-[10px] font-mono text-rose-300">
+                        🚨 เลยกำหนดเฟส "{getOverdueMilestone(group.progress)?.name}"
+                      </div>
+                    )}
 
-                  <p className="mt-2 text-sm text-slate-300">
-                    <span className="font-semibold text-amber-300">หัวข้อโครงงาน :</span>{' '}
-                    {group.projectName}
-                  </p>
-
-                  {/* รายชื่อสมาชิก */}
-                  <div className="mt-4 rounded-xl border border-slate-800/60 bg-slate-950/40 p-3">
-                    <p className="text-xs font-mono uppercase tracking-wider text-slate-500">
-                      สมาชิกผู้จัดทำ ({group.members ? group.members.length : 0} คน)
+                    <p className="mt-2 text-sm text-slate-300">
+                      <span className="font-semibold text-amber-300">หัวข้อโครงงาน :</span>{' '}
+                      {group.projectName}
                     </p>
-                    <ul className="mt-2 space-y-1 text-xs text-slate-300 font-mono">
-                      {group.members && group.members.length > 0 ? (
-                        group.members.map((m, i) => (
-                          <li key={i} className="flex justify-between">
-                            <span>• {m.fullname}</span>
-                            <span className="text-slate-500">{m.studentId}</span>
-                          </li>
-                        ))
-                      ) : (
-                        <li className="text-slate-600">ไม่มีสมาชิก</li>
-                      )}
-                    </ul>
+
+                    {/* รายชื่อสมาชิก */}
+                    <div className="mt-4 rounded-xl border border-slate-800/60 bg-slate-950/40 p-3">
+                      <p className="text-xs font-mono uppercase tracking-wider text-slate-500">
+                        สมาชิกผู้จัดทำ ({group.members ? group.members.length : 0} คน)
+                      </p>
+                      <ul className="mt-2 space-y-1 text-xs text-slate-300 font-mono">
+                        {group.members && group.members.length > 0 ? (
+                          group.members.map((m, i) => (
+                            <li key={i} className="flex justify-between">
+                              <span>• {m.fullname}</span>
+                              <span className="text-slate-500">{m.studentId}</span>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="text-slate-600">ไม่มีสมาชิก</li>
+                        )}
+                      </ul>
+                    </div>
+
+                    {/* 📎 แสดงไฟล์แนบ */}
+                    {group.fileUrl ? (
+                      <div className="mt-3">
+                        <a
+                          href={group.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-xs font-mono font-semibold text-cyan-300 transition hover:bg-cyan-500/20"
+                        >
+                          📎 เปิดดู / ดาวน์โหลดไฟล์แนบ
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="mt-3 text-xs text-slate-500 font-mono">
+                        📄 ยังไม่มีไฟล์แนบในรอบนี้
+                      </div>
+                    )}
+
+                    {group.comment && (
+                      <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-950/20 p-2.5 text-xs text-rose-300 font-mono">
+                        💬 ข้อเสนอแนะล่าสุด: "{group.comment}"
+                      </div>
+                    )}
+
+                    {/* 🟢 ประวัติการส่งงานทีละรอบ */}
+                    {group.reports && group.reports.length > 0 && (
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedGroupId(expandedGroupId === group.id ? null : group.id)
+                          }
+                          className="w-full rounded-xl border border-slate-800/60 bg-slate-950/40 px-3 py-2 text-left text-xs font-mono text-slate-400 hover:text-slate-200"
+                        >
+                          📜 ประวัติการส่งงาน ({group.reports.length} รอบ){' '}
+                          {expandedGroupId === group.id ? '▲' : '▼'}
+                        </button>
+
+                        {expandedGroupId === group.id && (
+                          <div className="mt-2 space-y-3">
+                            {group.reports.map((r) => (
+                              <div
+                                key={r.id}
+                                className="rounded-xl border border-slate-800/60 bg-slate-950/30 p-3"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-mono text-xs font-semibold text-cyan-300">
+                                    {r.progress}%
+                                  </span>
+                                  {r.created_at && (
+                                    <span className="font-mono text-[10px] text-slate-500">
+                                      {new Date(r.created_at).toLocaleString('th-TH')}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {r.description && (
+                                  <p className="mt-1 text-xs text-slate-300">{r.description}</p>
+                                )}
+
+                                {r.file_path && (
+                                  <a
+                                    href={r.file_path}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 inline-block text-[10px] font-mono text-cyan-400 underline underline-offset-2"
+                                  >
+                                    📎 ดูไฟล์แนบของรอบนี้
+                                  </a>
+                                )}
+
+                                <textarea
+                                  value={reportComments[r.id] ?? r.teacher_comment ?? ''}
+                                  onChange={(e) =>
+                                    setReportComments((prev) => ({
+                                      ...prev,
+                                      [r.id]: e.target.value,
+                                    }))
+                                  }
+                                  rows={2}
+                                  placeholder="เขียนความเห็น/ข้อเสนอแนะสำหรับงานรอบนี้..."
+                                  className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() => saveReportComment(r.id)}
+                                  disabled={savingReportId === r.id}
+                                  className="mt-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold text-cyan-300 hover:bg-cyan-400/20 disabled:opacity-50"
+                                >
+                                  {savingReportId === r.id ? 'กำลังบันทึก...' : '💾 บันทึกความเห็น'}
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* 📎 แสดงไฟล์แนบ */}
-                  {group.fileUrl ? (
-                    <div className="mt-3">
-                      <a
-                        href={group.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-xs font-mono font-semibold text-cyan-300 transition hover:bg-cyan-500/20"
-                      >
-                        📎 เปิดดู / ดาวน์โหลดไฟล์แนบ
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="mt-3 text-xs text-slate-500 font-mono">
-                      📄 ยังไม่มีไฟล์แนบในรอบนี้
-                    </div>
-                  )}
+                  {/* Actions */}
+                  <div className="mt-5 flex gap-3 border-t border-slate-800/60 pt-4">
+                    <button
+                      onClick={() => handleApprove(group.id)}
+                      disabled={actionLoading || isChecked}
+                      className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition ${
+                        isChecked
+                          ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300 disabled:opacity-80'
+                          : 'border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                      }`}
+                    >
+                      {isChecked ? '✅ ตรวจแล้ว' : '🔍 รอตรวจ'}
+                    </button>
 
-                  {group.comment && (
-                    <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-950/20 p-2.5 text-xs text-rose-300 font-mono">
-                      💬 ข้อเสนอแนะล่าสุด: "{group.comment}"
-                    </div>
-                  )}
-
-                  {/* 🟢 ประวัติการส่งงานทีละรอบ */}
-                  {group.reports && group.reports.length > 0 && (
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setExpandedGroupId(expandedGroupId === group.id ? null : group.id)
-                        }
-                        className="w-full rounded-xl border border-slate-800/60 bg-slate-950/40 px-3 py-2 text-left text-xs font-mono text-slate-400 hover:text-slate-200"
-                      >
-                        📜 ประวัติการส่งงาน ({group.reports.length} รอบ){' '}
-                        {expandedGroupId === group.id ? '▲' : '▼'}
-                      </button>
-
-                      {expandedGroupId === group.id && (
-                        <div className="mt-2 space-y-3">
-                          {group.reports.map((r) => (
-                            <div
-                              key={r.id}
-                              className="rounded-xl border border-slate-800/60 bg-slate-950/30 p-3"
-                            >
-                              <div className="flex items-center justify-between">
-                                <span className="font-mono text-xs font-semibold text-cyan-300">
-                                  {r.progress}%
-                                </span>
-                                {r.created_at && (
-                                  <span className="font-mono text-[10px] text-slate-500">
-                                    {new Date(r.created_at).toLocaleString('th-TH')}
-                                  </span>
-                                )}
-                              </div>
-
-                              {r.description && (
-                                <p className="mt-1 text-xs text-slate-300">{r.description}</p>
-                              )}
-
-                              {r.file_path && (
-                                <a
-                                  href={r.file_path}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="mt-1 inline-block text-[10px] font-mono text-cyan-400 underline underline-offset-2"
-                                >
-                                  📎 ดูไฟล์แนบของรอบนี้
-                                </a>
-                              )}
-
-                              <textarea
-                                value={reportComments[r.id] ?? r.teacher_comment ?? ''}
-                                onChange={(e) =>
-                                  setReportComments((prev) => ({
-                                    ...prev,
-                                    [r.id]: e.target.value,
-                                  }))
-                                }
-                                rows={2}
-                                placeholder="เขียนความเห็น/ข้อเสนอแนะสำหรับงานรอบนี้..."
-                                className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
-                              />
-
-                              <button
-                                type="button"
-                                onClick={() => saveReportComment(r.id)}
-                                disabled={savingReportId === r.id}
-                                className="mt-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold text-cyan-300 hover:bg-cyan-400/20 disabled:opacity-50"
-                              >
-                                {savingReportId === r.id ? 'กำลังบันทึก...' : '💾 บันทึกความเห็น'}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    <button
+                      onClick={() => handleOpenRejectModal(group.id)}
+                      disabled={actionLoading}
+                      className="flex-1 rounded-xl border border-rose-400/30 bg-rose-500/10 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40"
+                    >
+                      ❌ ปฏิเสธ / ให้แก้ไข
+                    </button>
+                  </div>
                 </div>
-
-                {/* Actions */}
-                <div className="mt-5 flex gap-3 border-t border-slate-800/60 pt-4">
-                  <button
-                    onClick={() => handleApprove(group.id)}
-                    disabled={actionLoading || group.status === 'in_progress'}
-                    className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition ${
-                      group.status === 'in_progress'
-                        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300 disabled:opacity-80'
-                        : 'border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
-                    }`}
-                  >
-                    {group.status === 'in_progress' ? '✅ ตรวจแล้ว' : '🔍 รอตรวจ'}
-                  </button>
-
-                  <button
-                    onClick={() => handleOpenRejectModal(group.id)}
-                    disabled={actionLoading}
-                    className="flex-1 rounded-xl border border-rose-400/30 bg-rose-500/10 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40"
-                  >
-                    ❌ ปฏิเสธ / ให้แก้ไข
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
