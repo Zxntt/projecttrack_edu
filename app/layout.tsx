@@ -1,6 +1,7 @@
 import './globals.css'
 import { ProjectProvider } from './context/ProjectContext'
 import Navbar from './navbar/Navbar'
+import Footer from './footer/footer'
 import type { Metadata, Viewport } from 'next'
 
 export const metadata: Metadata = {
@@ -19,12 +20,22 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang='th'>
-      <body>
+    <html lang="th">
+      <body className="min-h-screen flex flex-col bg-[#05070d] text-slate-100">
+
         <ProjectProvider>
+          {/* Navbar */}
           <Navbar />
-          {children}
+
+          {/* Main Content */}
+          <main className="flex-1">
+            {children}
+          </main>
+
+          {/* Footer */}
+          <Footer />
         </ProjectProvider>
+
       </body>
     </html>
   )
