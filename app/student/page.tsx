@@ -25,6 +25,8 @@ type ProgressReport = {
   created_at?: string
 }
 
+const LEVELS = ['25', '50', '75', '100']
+
 export default function StudentPage() {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null) // 🟢 เพิ่ม useRef สำหรับจัดการ input file
@@ -262,7 +264,7 @@ export default function StudentPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#F4F8F5]">
+      <main className="flex min-h-screen items-center justify-center bg-[#EAF3FB]">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#0B1F3A]/15 border-t-[#0B1F3A]" />
           <p className="text-sm tracking-wide text-[#0B1F3A]/60">
@@ -278,38 +280,94 @@ export default function StudentPage() {
   const isProjectCompleted = student.status === 'checked' && student.progress >= 100
   const canSubmit = student.status !== 'no_group' && !isProjectCompleted
 
+  // 🟢 ข้อความ/สีของแถบสถานะ รวมเป็นชุดเดียวเพื่อลดโค้ดซ้ำและให้ดูเป็นระบบเดียวกัน
+  const statusBanner: Record<
+    string,
+    { title: string; body: string; tone: string; dot: string } | null
+  > = {
+    no_group: {
+      title: 'คุณยังไม่มีกลุ่มโครงงาน',
+      body: 'ไปที่หน้าจัดตั้งกลุ่มเพื่อเสนอชื่อโครงงานและเลือกสมาชิกในกลุ่ม',
+      tone: 'border-amber-600/25 bg-amber-50 text-amber-800',
+      dot: 'bg-amber-500',
+    },
+    pending: {
+      title: 'โครงงานอยู่ระหว่างรออาจารย์ตรวจสอบ',
+      body: 'คุณสามารถส่งรายงานความคืบหน้าเพิ่มเติม หรือแก้ไขข้อมูลได้ตามปกติ',
+      tone: 'border-sky-600/25 bg-sky-50 text-sky-800',
+      dot: 'bg-sky-500',
+    },
+    waiting_review: {
+      title: 'งานล่าสุดของคุณอยู่ระหว่างรออาจารย์ตรวจ',
+      body: 'คุณยังส่งรายงานความคืบหน้ารอบถัดไปได้ตามปกติ',
+      tone: 'border-[#0B1F3A]/20 bg-[#0B1F3A]/[0.05] text-[#0B1F3A]',
+      dot: 'bg-[#0B1F3A]',
+    },
+    checked: !isProjectCompleted
+      ? {
+          title: 'อาจารย์ตรวจงานรอบล่าสุดแล้ว',
+          body: 'คุณสามารถส่งรายงานความคืบหน้ารอบถัดไปได้เลย',
+          tone: 'border-emerald-600/25 bg-emerald-50 text-emerald-800',
+          dot: 'bg-emerald-500',
+        }
+      : null,
+    rejected: {
+      title: 'โครงงานต้องแก้ไข',
+      body: 'ฟอร์มส่งงานเปิดให้คุณแก้ไขและส่งงานใหม่ได้ด้านล่างนี้',
+      tone: 'border-rose-600/25 bg-rose-50 text-rose-800',
+      dot: 'bg-rose-500',
+    },
+  }
+  const banner = isProjectCompleted
+    ? {
+        title: 'โครงงานเสร็จสมบูรณ์แล้ว',
+        body: 'งาน 100% ได้รับการตรวจเรียบร้อยแล้ว ฟอร์มส่งงานถูกปิดการใช้งาน',
+        tone: 'border-emerald-600/25 bg-emerald-50 text-emerald-800',
+        dot: 'bg-emerald-500',
+      }
+    : statusBanner[student.status] || null
+
   return (
     <main
-      className="min-h-screen bg-[#DAEBF7] p-6 text-[#1B2431]"
+      className="min-h-screen bg-[#EAF3FB] pb-16 text-[#1B2431]"
       style={{
         fontFamily: "'Noto Sans Thai', 'IBM Plex Sans Thai', system-ui, sans-serif",
-        backgroundImage:
-          'radial-gradient(circle at 1px 1px, #0b1f3a12 1px, transparent 0)',
+        backgroundImage: 'radial-gradient(circle at 1px 1px, #0b1f3a12 1px, transparent 0)',
         backgroundSize: '28px 28px',
       }}
     >
       <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
         .font-display {
           font-family: 'Noto Serif Thai', serif;
         }
+        .font-mono-lab {
+          font-family: 'IBM Plex Mono', ui-monospace, monospace;
+        }
       `}</style>
 
-      <div className="mx-auto max-w-3xl space-y-6">
+      {/* 🟢 แถบสีบนสุด — ล้อสีจากโลโก้ MCU / IoT / LAB */}
+      <div className="flex h-1.5 w-full">
+        <div className="flex-1 bg-[#C0272D]" />
+        <div className="flex-1 bg-[#3AA35A]" />
+        <div className="flex-1 bg-[#2F80ED]" />
+        <div className="flex-1 bg-[#E4535E]" />
+      </div>
+
+      <div className="mx-auto max-w-3xl space-y-5 px-4 pt-6 sm:px-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)] sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:text-left">
-            {/* 🟢 โลโก้ Information Technology Chiangmai Technical College */}
+        <div className="flex flex-col gap-4 border-b border-[#0B1F3A]/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
             <img
               src="/pic/2.png"
               alt="Information Technology Chiangmai Technical College"
-              className="h-15 w-auto object-contain sm:h-18"
+              className="h-12 w-auto shrink-0 object-contain sm:h-14"
             />
             <div>
-              <h1 className="font-display text-2xl font-bold tracking-tight text-[#0B1F3A]">
+              <h1 className="font-display text-2xl font-bold leading-tight tracking-tight text-[#0B1F3A] sm:text-[28px]">
                 Student Dashboard
               </h1>
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-0.5 text-sm text-slate-500">
                 ระบบติดตามและส่งรายงานความคืบหน้าโครงงาน
               </p>
             </div>
@@ -318,147 +376,102 @@ export default function StudentPage() {
           <div className="flex gap-2">
             <button
               onClick={() => router.push('/newstudent')}
-              className="rounded-xl border border-[#0B1F3A]/15 bg-white px-4 py-2 text-xs font-medium text-[#0B1F3A] transition hover:bg-[#0B1F3A]/[0.04]"
+              className="rounded-lg border border-[#0B1F3A]/15 bg-white px-3.5 py-2 text-xs font-medium text-[#0B1F3A] transition hover:border-[#0B1F3A]/30 hover:bg-[#0B1F3A]/[0.04]"
             >
-              📋 จัดการกลุ่ม
+              จัดการกลุ่ม
             </button>
 
             <button
               onClick={handleLogout}
-              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-100"
+              className="rounded-lg border border-rose-200 bg-white px-3.5 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
             >
-              🚪 ออกจากระบบ
+              ออกจากระบบ
             </button>
           </div>
         </div>
 
-        {/* Status Alert Banner */}
-        {student.status === 'no_group' && (
-          <div className="rounded-2xl border border-amber-600/20 bg-amber-50 p-5 text-amber-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
-            <h3 className="font-bold flex items-center gap-2">⚠️ คุณยังไม่มีกลุ่มโครงงาน</h3>
-            <p className="mt-1 text-xs text-amber-700/80">
-              กรุณาไปที่หน้าจัดตั้งกลุ่มเพื่อเสนอชื่อโครงงานและเลือกสมาชิกในกลุ่ม
-            </p>
-            <button
-              onClick={() => router.push('/newstudent')}
-              className="mt-3 rounded-xl border border-amber-600/30 bg-amber-100 px-4 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-200"
-            >
-              👉 ไปหน้าสร้างกลุ่มโครงงาน
-            </button>
-          </div>
-        )}
-
-        {student.status === 'pending' && (
-          <div className="rounded-2xl border border-sky-600/20 bg-sky-50 p-5 text-sky-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
-            <h3 className="font-bold flex items-center gap-2">⏳ โครงงานอยู่ระหว่างรออาจารย์ตรวจสอบ</h3>
-            <p className="mt-1 text-xs text-sky-700/80">
-              คุณสามารถส่งรายงานความคืบหน้าเพิ่มเติม หรือแก้ไขข้อมูลได้
-            </p>
-          </div>
-        )}
-
-        {student.status === 'waiting_review' && (
-          <div className="rounded-2xl border border-[#0B1F3A]/15 bg-[#0B1F3A]/[0.04] p-5 text-[#0B1F3A] shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
-            <h3 className="font-bold flex items-center gap-2">🔍 งานล่าสุดของคุณอยู่ระหว่างรออาจารย์ตรวจ</h3>
-            <p className="mt-1 text-xs text-[#0B1F3A]/70">
-              คุณยังส่งรายงานความคืบหน้ารอบถัดไปได้ตามปกติ
-            </p>
-          </div>
-        )}
-
-        {student.status === 'checked' && !isProjectCompleted && (
-          <div className="rounded-2xl border border-emerald-600/20 bg-emerald-50 p-5 text-emerald-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
-            <h3 className="font-bold flex items-center gap-2">✅ อาจารย์ตรวจงานรอบล่าสุดแล้ว</h3>
-            <p className="mt-1 text-xs text-emerald-700/80">
-              คุณสามารถส่งรายงานความคืบหน้ารอบถัดไปได้เลย
-            </p>
-          </div>
-        )}
-
-        {isProjectCompleted && (
-          <div className="rounded-2xl border border-emerald-600/20 bg-emerald-50 p-5 text-emerald-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
-            <h3 className="font-bold flex items-center gap-2">🎉 โครงงานเสร็จสมบูรณ์แล้ว</h3>
-            <p className="mt-1 text-xs text-emerald-700/80">
-              งาน 100% ได้รับการตรวจเรียบร้อยแล้ว ฟอร์มส่งงานถูกปิดการใช้งาน
-            </p>
-          </div>
-        )}
-
-        {student.status === 'rejected' && (
-          <div className="rounded-2xl border border-rose-600/20 bg-rose-50 p-5 text-rose-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
-            <h3 className="font-bold flex items-center gap-2">❌ โครงงานต้องแก้ไข</h3>
-            {student.comment && (
-              <div className="mt-2 rounded-xl border border-rose-600/20 bg-rose-100/60 p-3 text-xs text-rose-800">
-                💬 ข้อเสนอแนะจากอาจารย์: "{student.comment}"
-              </div>
-            )}
-            <p className="mt-2 text-xs text-rose-700/80">
-              ฟอร์มส่งงานเปิดให้คุณแก้ไขและส่งงานใหม่ได้แล้วด้านล่างนี้
-            </p>
-          </div>
-        )}
-
-        {/* Student Info */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)]">
-          <h2 className="mb-4 text-lg font-semibold text-[#0B1F3A] border-b border-slate-200 pb-2">
-            📌 ข้อมูลนักศึกษา
-          </h2>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Status Banner — แถบเดียว ปรับสีตามสถานะ */}
+        {banner && (
+          <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 ${banner.tone}`}>
+            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${banner.dot}`} />
             <div>
-              <p className="text-xs text-slate-500">ชื่อ - นามสกุล</p>
-              <p className="mt-1 font-medium text-[#0B1F3A]">{student.name}</p>
+              <p className="text-sm font-semibold">{banner.title}</p>
+              <p className="mt-0.5 text-xs opacity-80">{banner.body}</p>
+              {student.status === 'rejected' && student.comment && (
+                <p className="mt-2 rounded-lg bg-white/60 px-3 py-2 text-xs text-rose-900">
+                  ข้อเสนอแนะจากอาจารย์: “{student.comment}”
+                </p>
+              )}
+              {student.status === 'no_group' && (
+                <button
+                  onClick={() => router.push('/newstudent')}
+                  className="mt-2 rounded-lg border border-amber-600/30 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+                >
+                  ไปหน้าสร้างกลุ่มโครงงาน
+                </button>
+              )}
             </div>
+          </div>
+        )}
 
+        {/* Student Info + Progress — วางคู่กันเป็น 2 คอลัมน์บนจอกว้าง */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-5">
+          {/* Student Info */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:col-span-3">
+            <h2 className="mb-4 text-sm font-semibold text-[#0B1F3A]">ข้อมูลนักศึกษา</h2>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+              <div>
+                <p className="text-[11px] text-slate-400">ชื่อ - นามสกุล</p>
+                <p className="mt-1 text-sm font-medium text-[#0B1F3A]">{student.name}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400">รหัสนักศึกษา</p>
+                <p className="font-mono-lab mt-1 text-sm font-medium text-[#0B1F3A]">
+                  {student.student_code}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400">กลุ่มโครงงาน</p>
+                <p className="mt-1 text-sm font-medium text-slate-700">{student.group_name}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-slate-400">ชื่อโครงงาน</p>
+                <p className="mt-1 text-sm font-medium text-slate-700">{student.project}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Current Progress */}
+          <div className="flex flex-col justify-between rounded-2xl border border-[#0B1F3A] bg-[#0B1F3A] p-6 text-white sm:col-span-2">
             <div>
-              <p className="text-xs text-slate-500">รหัสนักศึกษา</p>
-              <p className="mt-1 font-medium text-[#0B1F3A]">
-                {student.student_code}
+              <p className="text-[11px] uppercase tracking-wide text-white/50">ความคืบหน้า</p>
+              <p className="font-display mt-1 text-5xl font-bold leading-none">
+                {student.progress}
+                <span className="text-2xl font-normal text-white/60">%</span>
               </p>
             </div>
 
-            <div>
-              <p className="text-xs text-slate-500">กลุ่มโครงงาน</p>
-              <p className="mt-1 font-medium text-slate-700">{student.group_name}</p>
-            </div>
-
-            <div>
-              <p className="text-xs text-slate-500">ชื่อโครงงาน</p>
-              <p className="mt-1 font-medium text-slate-700">{student.project}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Current Progress */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)]">
-          <h2 className="mb-4 text-lg font-semibold text-[#0B1F3A] border-b border-slate-200 pb-2">
-            📊 ความคืบหน้าปัจจุบัน
-          </h2>
-
-          <div className="space-y-4">
-            <div>
-              <div className="mb-2 flex justify-between text-sm">
-                <span className="text-slate-500">เปอร์เซ็นต์งานเสร็จสิ้น</span>
-                <span className="font-bold text-[#0B1F3A]">{student.progress}%</span>
-              </div>
-
-              <div className="h-3 overflow-hidden rounded-full bg-slate-100 border border-slate-200">
+            <div className="mt-5">
+              <div className="relative h-1.5 w-full rounded-full bg-white/15">
                 <div
-                  className="h-full rounded-full bg-[#0B1F3A] transition-all duration-500"
+                  className="absolute inset-y-0 left-0 rounded-full bg-white transition-all duration-500"
                   style={{ width: `${student.progress}%` }}
                 />
+                {[25, 50, 75].map((tick) => (
+                  <span
+                    key={tick}
+                    className="absolute top-1/2 h-2.5 w-0.5 -translate-y-1/2 bg-[#0B1F3A]/60"
+                    style={{ left: `${tick}%` }}
+                  />
+                ))}
               </div>
-            </div>
-
-            <div className="flex items-center gap-2 pt-1">
-              <span className="text-xs text-slate-500">สถานะอนุมัติ:</span>
               <span
-                className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${
+                className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                   student.status === 'checked'
-                    ? 'border-emerald-600/20 bg-emerald-50 text-emerald-700'
+                    ? 'bg-emerald-400/20 text-emerald-300'
                     : student.status === 'rejected'
-                    ? 'border-rose-600/20 bg-rose-50 text-rose-700'
-                    : 'border-amber-600/20 bg-amber-50 text-amber-700'
+                    ? 'bg-rose-400/20 text-rose-300'
+                    : 'bg-amber-400/20 text-amber-300'
                 }`}
               >
                 {student.displayStatus}
@@ -470,64 +483,81 @@ export default function StudentPage() {
         {/* Submit Form */}
         <form
           onSubmit={handleSubmit}
-          className={`space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)] transition ${
+          className={`space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_12px_32px_-16px_rgba(11,31,58,0.15)] transition sm:p-7 ${
             !canSubmit ? 'opacity-50 pointer-events-none' : ''
           }`}
         >
-          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-            <h2 className="text-lg font-semibold text-[#0B1F3A]">
-              🚀 ส่งความคืบหน้าใหม่
-            </h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-[#0B1F3A]">ส่งความคืบหน้าใหม่</h2>
             {!canSubmit && (
-              <span className="text-xs text-rose-600 font-medium">
-                🔒 ฟอร์มถูกล็อก
+              <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-600">
+                ฟอร์มถูกล็อก
               </span>
             )}
           </div>
 
+          {/* 🟢 Milestone stepper — เส้นเชื่อมแบบวงจร แทนปุ่มกริดเดิม */}
           <div>
-            <label className="mb-2 block text-xs text-slate-500">
-              เลือกเปอร์เซ็นต์ความคืบหน้า
-            </label>
+            <label className="mb-4 block text-xs text-slate-500">เลือกเปอร์เซ็นต์ความคืบหน้า</label>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {['25', '50', '75', '100'].map((p) => {
-                const isSubmitted = submittedLevels.includes(Number(p))
-                const milestone = getMilestone(p)
-                const isOverdue =
-                  milestone?.due_date && milestone.due_date < today && !isSubmitted
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    disabled={!canSubmit}
-                    onClick={() => setProgress(p)}
-                    title={milestone?.name || ''}
-                    className={`relative rounded-xl border py-3 font-semibold transition ${
-                      progress === p
-                        ? 'border-[#0B1F3A]/25 bg-[#0B1F3A]/[0.06] text-[#0B1F3A]'
-                        : 'border-slate-200 bg-white text-slate-500 hover:text-[#0B1F3A]'
-                    }`}
-                  >
-                    {p}%
-                    {isSubmitted && (
-                      <span className="absolute -top-2 -right-2 rounded-full border border-emerald-600/30 bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
-                        ✔ ส่งแล้ว
+            <div className="relative px-1">
+              <div className="absolute left-1 right-1 top-5 h-0.5 bg-slate-200" />
+              <div
+                className="absolute left-1 top-5 h-0.5 bg-[#0B1F3A] transition-all duration-500"
+                style={{
+                  width: `${(LEVELS.indexOf(progress) / (LEVELS.length - 1)) * 100}%`,
+                }}
+              />
+              <div className="relative flex justify-between">
+                {LEVELS.map((p) => {
+                  const isSubmitted = submittedLevels.includes(Number(p))
+                  const isActive = progress === p
+                  const milestone = getMilestone(p)
+                  const isOverdue = milestone?.due_date && milestone.due_date < today && !isSubmitted
+
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      disabled={!canSubmit}
+                      onClick={() => setProgress(p)}
+                      title={milestone?.name || ''}
+                      className="flex flex-col items-center gap-2"
+                    >
+                      <span
+                        className={`flex h-10 w-10 items-center justify-center rounded-lg border-2 text-xs font-bold transition ${
+                          isActive
+                            ? 'border-[#0B1F3A] bg-[#0B1F3A] text-white'
+                            : isSubmitted
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                            : isOverdue
+                            ? 'border-rose-400 bg-rose-50 text-rose-600'
+                            : 'border-slate-300 bg-white text-slate-500'
+                        }`}
+                      >
+                        {isSubmitted ? '✓' : `${p}`}
                       </span>
-                    )}
-                    {!isSubmitted && isOverdue && (
-                      <span className="absolute -top-2 -right-2 rounded-full border border-rose-600/30 bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700">
-                        🚨 เลยกำหนด
+                      <span
+                        className={`font-mono-lab text-[11px] font-medium ${
+                          isActive ? 'text-[#0B1F3A]' : 'text-slate-400'
+                        }`}
+                      >
+                        {p}%
                       </span>
-                    )}
-                  </button>
-                )
-              })}
+                      {isOverdue && (
+                        <span className="rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700">
+                          เลยกำหนด
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {getMilestone(progress) && (
-              <p className="mt-2 text-xs text-slate-500">
-                📌 {getMilestone(progress)?.name}
+              <p className="mt-4 text-xs text-slate-500">
+                {getMilestone(progress)?.name}
                 {getMilestone(progress)?.due_date && (
                   <span className="ml-2 text-slate-400">
                     (กำหนดส่ง: {getMilestone(progress)?.due_date})
@@ -538,44 +568,49 @@ export default function StudentPage() {
 
             {submittedLevels.includes(Number(progress)) && (
               <p className="mt-2 text-xs text-emerald-700">
-                ✔ งาน {progress}% นี้กลุ่มของคุณส่งไปแล้ว — ถ้าส่งอีกครั้งจะเป็นการอัปเดตข้อมูลเดิม
+                งาน {progress}% นี้กลุ่มของคุณส่งไปแล้ว — ถ้าส่งอีกครั้งจะเป็นการอัปเดตข้อมูลเดิม
               </p>
             )}
           </div>
 
-          {/* ประวัติการส่งงานของกลุ่ม */}
+          {/* ประวัติการส่งงานของกลุ่ม — จัดเป็นเส้นเวลาแนวตั้ง */}
           {(historyLoading || reportHistory.length > 0) && (
-            <div className="rounded-xl border border-slate-200 bg-[#F7F8FB] p-4">
-              <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
-                📜 ประวัติงานที่กลุ่มนี้ส่งไปแล้ว
+            <div className="border-t border-slate-100 pt-5">
+              <p className="mb-3 text-xs font-medium text-slate-500">
+                ประวัติงานที่กลุ่มนี้ส่งไปแล้ว
               </p>
               {historyLoading ? (
                 <p className="text-xs text-slate-400">กำลังโหลด...</p>
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-4">
                   {reportHistory.map((r, i) => (
-                    <li
-                      key={r.id ?? i}
-                      className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
-                    >
-                      <div className="min-w-0">
-                        <span className="font-semibold text-[#0B1F3A]">
-                          {r.progress}%
-                        </span>
+                    <li key={r.id ?? i} className="relative flex gap-3 pl-1 text-xs">
+                      <div className="relative mt-1 flex flex-col items-center">
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#0B1F3A]" />
+                        {i < reportHistory.length - 1 && (
+                          <span className="mt-1 w-px flex-1 bg-slate-200" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 pb-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono-lab font-semibold text-[#0B1F3A]">
+                            {r.progress}%
+                          </span>
+                          {r.created_at && (
+                            <span className="shrink-0 text-[10px] text-slate-400">
+                              {new Date(r.created_at).toLocaleDateString('th-TH')}
+                            </span>
+                          )}
+                        </div>
                         {r.description && (
-                          <p className="mt-0.5 truncate text-slate-500">{r.description}</p>
+                          <p className="mt-0.5 text-slate-500">{r.description}</p>
                         )}
                         {r.teacher_comment && (
-                          <p className="mt-1 rounded-md border border-amber-600/20 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
-                            💬 อาจารย์: {r.teacher_comment}
+                          <p className="mt-1.5 rounded-lg border border-amber-600/20 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800">
+                            อาจารย์: {r.teacher_comment}
                           </p>
                         )}
                       </div>
-                      {r.created_at && (
-                        <span className="shrink-0 text-[10px] text-slate-400">
-                          {new Date(r.created_at).toLocaleDateString('th-TH')}
-                        </span>
-                      )}
                     </li>
                   ))}
                 </ul>
@@ -583,11 +618,8 @@ export default function StudentPage() {
             </div>
           )}
 
-          <div>
-            <label className="mb-2 block text-xs text-slate-500">
-              รายละเอียดงานที่ทำเสร็จ
-            </label>
-
+          <div className="border-t border-slate-100 pt-5">
+            <label className="mb-2 block text-xs text-slate-500">รายละเอียดงานที่ทำเสร็จ</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -595,25 +627,25 @@ export default function StudentPage() {
               rows={4}
               required
               placeholder="อธิบายหัวข้อ หรืองานที่ทำเสร็จแล้วในรอบนี้..."
-              className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] p-4 text-sm text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-[#F7F8FB] p-4 text-sm text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none"
             />
           </div>
 
           {/* 📁 ช่องแนบไฟล์เอกสารเพิ่มเติม */}
           <div>
             <label className="mb-2 block text-xs text-slate-500">
-              📎 แนบไฟล์เอกสาร/รายงาน (PDF, DOCX, ZIP หรือรูปภาพ - สูงสุด 10MB)
+              แนบไฟล์เอกสาร/รายงาน (PDF, DOCX, ZIP หรือรูปภาพ — สูงสุด 10MB)
             </label>
             <input
               type="file"
               ref={fileInputRef}
               disabled={!canSubmit}
               onChange={handleFileChange}
-              className="w-full text-xs text-slate-500 file:mr-4 file:rounded-xl file:border-0 file:bg-[#0B1F3A]/[0.06] file:px-4 file:py-2.5 file:text-xs file:font-semibold file:text-[#0B1F3A] hover:file:bg-[#0B1F3A]/[0.1] cursor-pointer rounded-xl border border-slate-200 bg-[#F7F8FB] p-2"
+              className="w-full text-xs text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-[#0B1F3A]/[0.06] file:px-4 file:py-2.5 file:text-xs file:font-semibold file:text-[#0B1F3A] hover:file:bg-[#0B1F3A]/[0.1] cursor-pointer rounded-lg border border-slate-200 bg-[#F7F8FB] p-2"
             />
             {file && (
               <p className="mt-2 text-xs text-emerald-700">
-                ✓ ไฟล์ที่เลือก: {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
+                ไฟล์ที่เลือก: {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
               </p>
             )}
           </div>
@@ -621,9 +653,9 @@ export default function StudentPage() {
           <button
             type="submit"
             disabled={submitting || !canSubmit}
-            className="w-full rounded-xl bg-[#0B1F3A] py-3.5 font-semibold text-white transition hover:bg-[#132A4C] disabled:opacity-50"
+            className="w-full rounded-lg bg-[#0B1F3A] py-3.5 font-semibold text-white transition hover:bg-[#132A4C] disabled:opacity-50"
           >
-            {submitting ? 'กำลังส่งข้อมูล...' : '✨ ยืนยันการส่งความคืบหน้า'}
+            {submitting ? 'กำลังส่งข้อมูล...' : 'ยืนยันการส่งความคืบหน้า'}
           </button>
         </form>
       </div>
