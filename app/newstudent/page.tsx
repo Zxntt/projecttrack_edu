@@ -50,7 +50,6 @@ export default function NewStudentPage() {
         router.replace("/login");
         return;
       }
-      // ทำความสะอาดค่า role กันเผื่อ localStorage เก่าจากก่อนแก้ (ล็อกอินค้างไว้)
       user.role = String(user.role).trim().toLowerCase();
       setCurrentUser(user);
       fetchGroups();
@@ -137,7 +136,6 @@ export default function NewStudentPage() {
     }
   };
 
-  // 💾 บันทึกข้อมูลกลุ่ม
   const handleSaveGroup = async () => {
     if (!groupName.trim()) {
       alert("กรุณากรอกชื่อกลุ่ม");
@@ -160,7 +158,6 @@ export default function NewStudentPage() {
       return;
     }
 
-    // 🟢 ดึง ID ของผู้สร้างแบบครอบคลุมทั้ง id และ student_code
     const createdBy = currentUser.id || currentUser.student_code || currentUser.studentId;
 
     const payload = {
@@ -259,16 +256,14 @@ export default function NewStudentPage() {
     }
   };
 
-  // 🔍 ฟังก์ชันเช็กว่าผู้ใช้ปัจจุบันเป็นเจ้าของกลุ่มนี้หรือไม่
   const isGroupOwner = (group: Group) => {
     if (!currentUser) return false;
-    if (currentUser.role === "teacher") return true; // อาจารย์แก้ได้ทุกกลุ่ม
+    if (currentUser.role === "teacher") return true;
 
     const myId = String(currentUser.id || "").trim();
     const myCode = String(currentUser.student_code || currentUser.studentId || "").trim();
     const ownerId = String(group.created_by || "").trim();
 
-    // เช็กว่าตรงกับ created_by หรือมีรายชื่อเป็นสมาชิกในกลุ่มหรือไม่
     const isCreator = ownerId === myId || ownerId === myCode;
     const isMember = group.members?.some(
       (m) => String(m.studentId).trim() === myCode
@@ -279,35 +274,44 @@ export default function NewStudentPage() {
 
   return (
     <main
-      className="min-h-screen bg-[#05070d] p-6 text-slate-200"
+      className="min-h-screen p-6 text-[#1B2431]"
       style={{
+        backgroundColor: "#DAEBF7",
+        fontFamily: "'Noto Sans Thai', 'IBM Plex Sans Thai', system-ui, sans-serif",
         backgroundImage:
-          "radial-gradient(circle at 1px 1px, rgba(148,163,184,0.15) 1px, transparent 0)",
+          "radial-gradient(circle at 1px 1px, #0b1f3a12 1px, transparent 0)",
         backgroundSize: "28px 28px",
       }}
     >
-      <div className="mx-auto max-w-6xl space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');
+        .font-display {
+          font-family: 'Noto Serif Thai', serif;
+        }
+      `}</style>
+
+      <div className="mx-auto max-w-5xl space-y-6">
+        {/* Header Card */}
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)] sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="bg-gradient-to-r from-emerald-300 via-teal-300 to-cyan-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+            <h1 className="font-display text-2xl font-bold tracking-tight text-[#0B1F3A]">
               📋 จัดการกลุ่มนักเรียน
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
-              ( เพิ่ม แก้ไข และลบกลุ่มนักเรียนพร้อมรายชื่อผู้จัดทำ )
+            <p className="mt-1 text-sm text-slate-500">
+              เพิ่ม แก้ไข และลบกลุ่มนักเรียนพร้อมรายชื่อผู้จัดทำโครงงาน
             </p>
           </div>
 
           <div className="flex gap-3">
             <button
               onClick={handleGoBack}
-              className="flex items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-800/40 px-4 py-2 font-medium text-slate-300 transition hover:bg-slate-800"
+              className="rounded-xl border border-slate-200 bg-[#F7F8FB] px-4 py-2.5 text-sm font-medium text-[#0B1F3A] transition hover:bg-slate-100"
             >
               ⬅️ {currentUser?.role === "teacher" ? "กลับหน้าหลัก" : "กลับหน้าส่งงาน"}
             </button>
             <button
               onClick={handleOpenCreateModal}
-              className="flex items-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-2 font-medium text-emerald-300 shadow-[0_0_20px_-6px_rgba(52,211,153,0.5)] transition hover:bg-emerald-400/20"
+              className="rounded-xl bg-[#0B1F3A] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#132A4C]"
             >
               + เพิ่มกลุ่มใหม่
             </button>
@@ -316,15 +320,15 @@ export default function NewStudentPage() {
 
         {/* Content Section */}
         {loading ? (
-          <div className="flex h-64 items-center justify-center font-mono text-sm text-cyan-400/70">
-            LOADING DATA · กำลังโหลดข้อมูล...
+          <div className="flex h-48 items-center justify-center font-mono text-sm text-[#0B1F3A]/60">
+            LOADING DATA...
           </div>
         ) : groups.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-12 text-center backdrop-blur-xl">
-            <p className="font-mono text-slate-500">ยังไม่มีกลุ่มนักเรียนในระบบ</p>
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)]">
+            <p className="font-mono text-slate-400">ยังไม่มีกลุ่มนักเรียนในระบบ</p>
             <button
               onClick={handleOpenCreateModal}
-              className="mt-4 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-5 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-400/20"
+              className="mt-4 rounded-xl border border-slate-200 bg-[#F7F8FB] px-5 py-2.5 text-sm font-medium text-[#0B1F3A] hover:bg-slate-100 transition"
             >
               + คลิกที่นี่เพื่อเริ่มเพิ่มกลุ่มแรก
             </button>
@@ -337,39 +341,39 @@ export default function NewStudentPage() {
               return (
                 <div
                   key={group.id}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl transition hover:border-slate-700"
+                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)] transition hover:shadow-md"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-slate-100">
+                      <h3 className="font-display text-lg font-bold text-[#0B1F3A]">
                         {group.groupName}
                       </h3>
-                      <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-0.5 text-xs font-mono text-cyan-300">
+                      <span className="rounded-full border border-slate-200 bg-[#F7F8FB] px-3 py-1 text-xs font-mono text-[#0B1F3A]">
                         {group.className}
                       </span>
                     </div>
 
-                    <p className="mt-2 text-sm text-slate-400">
-                      <span className="font-semibold text-slate-300">โครงงาน :</span>{" "}
+                    <p className="mt-3 text-sm text-slate-600">
+                      <span className="font-semibold text-[#0B1F3A]">โครงงาน :</span>{" "}
                       {group.projectName}
                     </p>
 
-                    <div className="mt-4 rounded-xl border border-slate-800/60 bg-slate-950/40 p-3">
-                      <p className="text-xs font-mono uppercase tracking-wider text-slate-500">
+                    <div className="mt-4 rounded-xl border border-slate-100 bg-[#F7F8FB] p-4">
+                      <p className="text-xs font-mono uppercase tracking-wider text-slate-400">
                         สมาชิก ({group.members ? group.members.length : 0} คน)
                       </p>
-                      <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                      <ul className="mt-2 space-y-1.5 text-sm text-[#1B2431]">
                         {group.members && group.members.length > 0 ? (
                           group.members.map((m, i) => (
-                            <li key={i} className="flex justify-between">
+                            <li key={i} className="flex justify-between items-center">
                               <span>{m.fullname}</span>
-                              <span className="font-mono text-xs text-slate-500">
+                              <span className="font-mono text-xs text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
                                 {m.studentId}
                               </span>
                             </li>
                           ))
                         ) : (
-                          <li className="font-mono text-xs text-slate-600">
+                          <li className="font-mono text-xs text-slate-400">
                             ไม่มีสมาชิก
                           </li>
                         )}
@@ -377,25 +381,24 @@ export default function NewStudentPage() {
                     </div>
                   </div>
 
-                  {/* Actions (แสดงปุ่มเฉพาะกรณีที่เป็นเจ้าของกลุ่มหรืออาจารย์) */}
-                  <div className="mt-5 flex gap-3 border-t border-slate-800/60 pt-4">
+                  <div className="mt-5 flex gap-3 border-t border-slate-100 pt-4">
                     {canEdit ? (
                       <>
                         <button
                           onClick={() => handleOpenEditModal(group)}
-                          className="flex-1 rounded-xl border border-amber-400/30 bg-amber-400/10 py-2 text-sm font-medium text-amber-300 hover:bg-amber-400/20"
+                          className="flex-1 rounded-xl border border-amber-200 bg-amber-50 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 transition"
                         >
-                          ✏️ แก้ไข / เพิ่มสมาชิก
+                          ✏️ แก้ไข
                         </button>
                         <button
                           onClick={() => handleDeleteGroup(group.id)}
-                          className="flex-1 rounded-xl border border-rose-400/30 bg-rose-400/10 py-2 text-sm font-medium text-rose-300 hover:bg-rose-400/20"
+                          className="flex-1 rounded-xl border border-rose-200 bg-rose-50 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 transition"
                         >
-                          🗑️ ลบกลุ่ม
+                          🗑️ ลบ
                         </button>
                       </>
                     ) : (
-                      <span className="w-full text-center text-xs font-mono text-slate-600 py-1">
+                      <span className="w-full text-center text-xs font-mono text-slate-400 py-1">
                         🔒 ดูได้อย่างเดียว (ไม่ใช่เจ้าของกลุ่ม)
                       </span>
                     )}
@@ -409,15 +412,15 @@ export default function NewStudentPage() {
 
       {/* Modal Form */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-[#0b0f19] p-6 shadow-2xl">
-            <div className="mb-6 flex items-center justify-between border-b border-slate-800 pb-4">
-              <h2 className="text-xl font-bold text-slate-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B1F3A]/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between border-b border-slate-100 pb-4">
+              <h2 className="font-display text-xl font-bold text-[#0B1F3A]">
                 {editingId !== null ? "✏️ แก้ไขกลุ่มนักเรียน" : "✨ เพิ่มกลุ่มนักเรียน"}
               </h2>
               <button
                 onClick={handleCloseModal}
-                className="text-slate-400 hover:text-slate-200"
+                className="text-slate-400 hover:text-slate-700 transition"
               >
                 ✕
               </button>
@@ -425,13 +428,13 @@ export default function NewStudentPage() {
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">
                   ห้องเรียน
                 </label>
                 <select
                   value={className}
                   onChange={(e) => setClassName(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900/80 p-3 text-slate-200 focus:border-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] p-3 text-[#0B1F3A] focus:border-[#0B1F3A]/40 focus:outline-none transition"
                 >
                   <option>ปวส.2 สายตรง</option>
                   <option>ปวส.2 ม.6</option>
@@ -439,7 +442,7 @@ export default function NewStudentPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">
                   ชื่อกลุ่ม
                 </label>
                 <input
@@ -447,12 +450,12 @@ export default function NewStudentPage() {
                   value={groupName}
                   onChange={(e) => setGroupName(e.target.value)}
                   placeholder="เช่น กลุ่มที่ 1"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900/80 p-3 text-slate-200 placeholder-slate-600 focus:border-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] p-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none transition"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-300">
+                <label className="mb-1.5 block text-xs font-medium text-slate-500">
                   หัวข้อโครงงาน
                 </label>
                 <input
@@ -460,14 +463,14 @@ export default function NewStudentPage() {
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="เช่น ระบบติดตามโครงงาน"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-900/80 p-3 text-slate-200 placeholder-slate-600 focus:border-cyan-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] p-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none transition"
                 />
               </div>
 
-              <hr className="my-4 border-slate-800" />
+              <hr className="my-4 border-slate-100" />
 
               <div>
-                <h3 className="mb-3 text-sm font-semibold text-slate-300">
+                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   เพิ่มสมาชิกในกลุ่ม
                 </h3>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -476,37 +479,37 @@ export default function NewStudentPage() {
                     placeholder="รหัสนักศึกษา"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    className="rounded-xl border border-slate-800 bg-slate-900/80 p-3 text-slate-200 placeholder-slate-600 focus:border-cyan-500 focus:outline-none"
+                    className="rounded-xl border border-slate-200 bg-[#F7F8FB] p-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none transition"
                   />
                   <input
                     type="text"
                     placeholder="ชื่อ-นามสกุล"
                     value={studentName}
                     onChange={(e) => setStudentName(e.target.value)}
-                    className="rounded-xl border border-slate-800 bg-slate-900/80 p-3 text-slate-200 placeholder-slate-600 focus:border-cyan-500 focus:outline-none"
+                    className="rounded-xl border border-slate-200 bg-[#F7F8FB] p-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none transition"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={handleAddMember}
-                  className="mt-3 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-sm font-medium text-cyan-300 hover:bg-cyan-400/20"
+                  className="mt-3 rounded-xl border border-slate-200 bg-[#F7F8FB] px-4 py-2 text-sm font-medium text-[#0B1F3A] hover:bg-slate-100 transition"
                 >
                   + เพิ่มสมาชิก
                 </button>
               </div>
 
               <div>
-                <p className="mb-2 text-xs font-mono text-slate-400">
+                <p className="mb-2 text-xs font-mono text-slate-500">
                   รายชื่อสมาชิกที่เลือกไว้ ({members.length} คน):
                 </p>
                 <div className="max-h-40 space-y-2 overflow-y-auto pr-1">
                   {members.map((member, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/50 p-2.5 text-sm"
+                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-[#F7F8FB] p-2.5 text-sm text-[#1B2431]"
                     >
                       <span>
-                        <span className="font-mono text-cyan-400">
+                        <span className="font-mono text-slate-500">
                           {member.studentId}
                         </span>{" "}
                         - {member.fullname}
@@ -514,7 +517,7 @@ export default function NewStudentPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveMember(index)}
-                        className="text-xs text-rose-400 hover:text-rose-300"
+                        className="text-xs text-rose-600 hover:text-rose-700 transition"
                       >
                         ลบ
                       </button>
@@ -524,18 +527,18 @@ export default function NewStudentPage() {
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-3 border-t border-slate-800 pt-4">
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="rounded-xl border border-slate-700 bg-slate-800/50 px-5 py-2 text-sm text-slate-300 hover:bg-slate-800"
+                className="rounded-xl border border-slate-200 bg-slate-100 px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition"
               >
                 ยกเลิก
               </button>
               <button
                 type="button"
                 onClick={handleSaveGroup}
-                className="rounded-xl border border-emerald-400/30 bg-emerald-500/20 px-5 py-2 text-sm font-medium text-emerald-300 hover:bg-emerald-500/30"
+                className="rounded-xl bg-[#0B1F3A] px-5 py-2 text-sm font-semibold text-white hover:bg-[#132A4C] transition"
               >
                 {editingId !== null ? "บันทึกการแก้ไข" : "บันทึกกลุ่ม"}
               </button>

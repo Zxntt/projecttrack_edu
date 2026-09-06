@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
 export default function ChangePasswordPage() {
   const router = useRouter()
@@ -50,9 +49,8 @@ export default function ChangePasswordPage() {
 
       const data = await res.json()
       if (data.success) {
-        setMessage({ text: 'เปลี่ยนรหัสผ่านสำเร็จ! กำลังพาคุณกลับ...', type: 'success' })
+        setMessage({ text: '✨ เปลี่ยนรหัสผ่านสำเร็จ! กำลังพาคุณกลับ...', type: 'success' })
         setTimeout(() => {
-          // เด้งกลับไปหน้าตามสิทธิ์ role
           const role = String(user.role || '').trim().toLowerCase()
           if (role === 'teacher') {
             router.push('/approvals')
@@ -63,47 +61,31 @@ export default function ChangePasswordPage() {
       } else {
         setMessage({ text: data.error || 'เกิดข้อผิดพลาด', type: 'error' })
       }
-    } catch (err) {
+    } catch {
       setMessage({ text: 'ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้', type: 'error' })
     } finally {
       setLoading(false)
     }
   }
 
-  const handleBack = () => {
-    const role = String(user?.role || '').trim().toLowerCase()
-    if (role === 'teacher') {
-      router.push('/approvals')
-    } else {
-      router.push('/student')
-    }
-  }
-
   return (
-    <main
-      className="flex min-h-screen items-center justify-center bg-[#05070d] p-6 text-slate-200"
-      style={{
-        backgroundImage:
-          'radial-gradient(circle at 1px 1px, rgba(246, 247, 248, 0.94) 1px, transparent 0)',
-        backgroundSize: '28px 28px',
-      }}
-    >
-      <div className="w-full max-w-md rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl space-y-6 shadow-2xl">
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 p-6 text-gray-800">
+      <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-sm space-y-6">
         <div>
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
             🔐 เปลี่ยนรหัสผ่าน
           </h1>
-          <p className="mt-1 text-xs text-slate-400 font-mono">
-            ผู้ใช้งาน: {user?.name || 'Loading...'}
+          <p className="mt-1 text-xs text-gray-500">
+            ผู้ใช้งาน: {user?.name || 'กำลังโหลด...'}
           </p>
         </div>
 
         {message.text && (
           <div
-            className={`rounded-xl p-3 text-xs font-mono border ${
+            className={`rounded-lg p-3 text-xs font-medium border ${
               message.type === 'success'
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                : 'border-rose-500/30 bg-rose-500/10 text-rose-300'
+                ? 'border-green-200 bg-green-50 text-green-700'
+                : 'border-red-200 bg-red-50 text-red-600'
             }`}
           >
             {message.text}
@@ -112,38 +94,38 @@ export default function ChangePasswordPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-mono text-slate-400">รหัสผ่านเดิม</label>
+            <label className="mb-1 block text-xs font-semibold text-gray-700">รหัสผ่านเดิม</label>
             <input
               type="password"
               required
               value={oldPassword}
               onChange={(e) => setOldPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-mono text-slate-400">รหัสผ่านใหม่</label>
+            <label className="mb-1 block text-xs font-semibold text-gray-700">รหัสผ่านใหม่</label>
             <input
               type="password"
               required
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-mono text-slate-400">ยืนยันรหัสผ่านใหม่</label>
+            <label className="mb-1 block text-xs font-semibold text-gray-700">ยืนยันรหัสผ่านใหม่</label>
             <input
               type="password"
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
             />
           </div>
 
@@ -151,14 +133,14 @@ export default function ChangePasswordPage() {
             <button
               type="button"
               onClick={() => router.push('/')}
-              className="w-1/2 rounded-xl border border-slate-700 bg-slate-800/60 px-4 py-2.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white"
+              className="w-1/2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-xs font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition"
             >
               ← กลับ
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="w-1/2 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2.5 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-400/20 disabled:opacity-50"
+              className="w-1/2 rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition shadow-sm"
             >
               {loading ? 'กำลังบันทึก...' : '💾 บันทึกรหัสใหม่'}
             </button>

@@ -30,7 +30,6 @@ export default function AdminUsersPage() {
       const user = JSON.parse(userStr)
       const role = String(user.role || '').trim().toLowerCase()
       if (role !== 'teacher') {
-        // ล็อกอินแล้วแต่ไม่ใช่อาจารย์ -> เด้งไปหน้าของตัวเอง ไม่ใช่บังคับ login ใหม่
         router.replace('/student')
         return
       }
@@ -76,7 +75,6 @@ export default function AdminUsersPage() {
     if (targetUser.role === newRole) return
 
     const prevUsers = users
-    // อัปเดตหน้าจอทันที (optimistic) เพื่อความลื่นไหล
     setUsers((prev) =>
       prev.map((u) => (u.id === targetUser.id ? { ...u, role: newRole } : u))
     )
@@ -103,7 +101,6 @@ export default function AdminUsersPage() {
     } catch (error) {
       console.error('Update role error:', error)
       alert('เปลี่ยนบทบาทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง')
-      // ย้อนกลับข้อมูลเดิมถ้าบันทึกไม่สำเร็จ
       setUsers(prevUsers)
     } finally {
       setSavingId(null)
@@ -113,78 +110,80 @@ export default function AdminUsersPage() {
   if (checking) return null
 
   return (
-    <main className="min-h-screen bg-[#05070d] p-6 text-slate-200">
+    <main className="min-h-screen bg-gray-50 p-6 text-gray-800">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div>
-            <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
               👥 จัดการผู้ใช้งานระบบ
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-gray-500">
               สำหรับอาจารย์เท่านั้น · จัดการบัญชีนักเรียนและอาจารย์
             </p>
           </div>
           <button
             onClick={() => router.push('/')}
-            className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-400/20"
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition"
           >
             ← กลับหน้าหลัก
           </button>
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-800/80 bg-slate-900/40 backdrop-blur-xl">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
           {loading ? (
-            <p className="p-6 text-center font-mono text-sm text-slate-500">กำลังโหลด...</p>
+            <p className="p-12 text-center text-sm text-gray-500">กำลังโหลด...</p>
           ) : (
-            <table className="min-w-full divide-y divide-slate-800/80">
-              <thead className="bg-slate-950/60">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left font-mono text-xs uppercase tracking-wider text-slate-500">รหัสนักศึกษา</th>
-                  <th className="px-4 py-3 text-left font-mono text-xs uppercase tracking-wider text-slate-500">ชื่อ</th>
-                  <th className="px-4 py-3 text-left font-mono text-xs uppercase tracking-wider text-slate-500">อีเมล</th>
-                  <th className="px-4 py-3 text-left font-mono text-xs uppercase tracking-wider text-slate-500">บทบาท</th>
-                  <th className="px-4 py-3 text-center font-mono text-xs uppercase tracking-wider text-slate-500">การกระทำ</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">รหัสนักศึกษา</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">ชื่อ</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">อีเมล</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">บทบาท</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">การกระทำ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-gray-200 bg-white">
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-8 text-center font-mono text-xs text-slate-500">
+                    <td colSpan={5} className="py-12 text-center text-xs text-gray-400">
                       ไม่พบข้อมูลผู้ใช้
                     </td>
                   </tr>
                 ) : (
                   users.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-800/40">
-                      <td className="px-4 py-3 font-mono text-sm text-cyan-300">{u.student_code || '-'}</td>
-                      <td className="px-4 py-3 text-sm text-slate-200">{u.name}</td>
-                      <td className="px-4 py-3 text-sm text-slate-400">{u.email || '-'}</td>
+                    <tr key={u.id} className="hover:bg-gray-50 transition">
+                      <td className="px-4 py-3 text-sm text-blue-600 font-medium">{u.student_code || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{u.name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{u.email || '-'}</td>
                       <td className="px-4 py-3">
-                        <select
-                          value={u.role === 'teacher' ? 'teacher' : 'student'}
-                          disabled={savingId === u.id}
-                          onChange={(e) => handleRoleChange(u, e.target.value)}
-                          className={`rounded-full border px-2.5 py-1 text-[10px] font-mono outline-none transition-colors ${
-                            u.role === 'teacher'
-                              ? 'border-violet-500/40 bg-violet-500/10 text-violet-300'
-                              : 'border-slate-700 bg-slate-800 text-cyan-300'
-                          } ${savingId === u.id ? 'opacity-50' : 'cursor-pointer hover:brightness-110'}`}
-                        >
-                          <option value="student" className="bg-slate-900 text-slate-200">
-                            STUDENT
-                          </option>
-                          <option value="teacher" className="bg-slate-900 text-slate-200">
-                            TEACHER
-                          </option>
-                        </select>
-                        {savingId === u.id && (
-                          <span className="ml-2 font-mono text-[10px] text-slate-500">กำลังบันทึก...</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={u.role === 'teacher' ? 'teacher' : 'student'}
+                            disabled={savingId === u.id}
+                            onChange={(e) => handleRoleChange(u, e.target.value)}
+                            className={`rounded-full border px-3 py-1 text-xs font-medium outline-none transition ${
+                              u.role === 'teacher'
+                                ? 'border-purple-200 bg-purple-50 text-purple-700'
+                                : 'border-blue-200 bg-blue-50 text-blue-700'
+                            } ${savingId === u.id ? 'opacity-50' : 'cursor-pointer hover:bg-gray-100'}`}
+                          >
+                            <option value="student" className="bg-white text-gray-800">
+                              STUDENT
+                            </option>
+                            <option value="teacher" className="bg-white text-gray-800">
+                              TEACHER
+                            </option>
+                          </select>
+                          {savingId === u.id && (
+                            <span className="text-xs text-gray-400">กำลังบันทึก...</span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => handleDelete(u.id)}
-                          className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-xs text-rose-300 hover:bg-rose-500/20"
+                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition shadow-sm"
                         >
                           ลบ
                         </button>

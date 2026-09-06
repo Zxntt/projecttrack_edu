@@ -230,7 +230,7 @@ export default function StudentPage() {
         setDescription('')
         setFile(null)
         setProgress('25')
-        
+
         // 🟢 เคลียร์ค่าในช่องเลือกไฟล์หลังจากส่งสำเร็จ
         if (fileInputRef.current) {
           fileInputRef.current.value = ''
@@ -262,8 +262,13 @@ export default function StudentPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#05070d] text-cyan-400 font-mono">
-        <p className="animate-pulse">LOADING DATA · กำลังโหลดข้อมูลนักศึกษา...</p>
+      <main className="flex min-h-screen items-center justify-center bg-[#F4F8F5]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#0B1F3A]/15 border-t-[#0B1F3A]" />
+          <p className="text-sm tracking-wide text-[#0B1F3A]/60">
+            กำลังโหลดข้อมูลนักศึกษา...
+          </p>
+        </div>
       </main>
     )
   }
@@ -275,21 +280,29 @@ export default function StudentPage() {
 
   return (
     <main
-      className="min-h-screen bg-[#05070d] p-6 text-slate-200"
+      className="min-h-screen bg-[#DAEBF7] p-6 text-[#1B2431]"
       style={{
+        fontFamily: "'Noto Sans Thai', 'IBM Plex Sans Thai', system-ui, sans-serif",
         backgroundImage:
-          'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.15) 1px, transparent 0)',
+          'radial-gradient(circle at 1px 1px, #0b1f3a12 1px, transparent 0)',
         backgroundSize: '28px 28px',
       }}
     >
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');
+        .font-display {
+          font-family: 'Noto Serif Thai', serif;
+        }
+      `}</style>
+
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)] sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-[#0B1F3A]">
               👨‍🎓 Student Dashboard
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-slate-500">
               ระบบติดตามและส่งรายงานความคืบหน้าโครงงาน
             </p>
           </div>
@@ -297,14 +310,14 @@ export default function StudentPage() {
           <div className="flex gap-2">
             <button
               onClick={() => router.push('/newstudent')}
-              className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 font-medium text-cyan-300 transition hover:bg-cyan-400/20 text-xs"
+              className="rounded-xl border border-[#0B1F3A]/15 bg-white px-4 py-2 text-xs font-medium text-[#0B1F3A] transition hover:bg-[#0B1F3A]/[0.04]"
             >
               📋 จัดการกลุ่ม
             </button>
 
             <button
               onClick={handleLogout}
-              className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 font-medium text-rose-300 transition hover:bg-rose-500/20 text-xs"
+              className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-medium text-rose-600 transition hover:bg-rose-100"
             >
               🚪 ออกจากระบบ
             </button>
@@ -313,14 +326,14 @@ export default function StudentPage() {
 
         {/* Status Alert Banner */}
         {student.status === 'no_group' && (
-          <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 text-amber-200 backdrop-blur-xl">
+          <div className="rounded-2xl border border-amber-600/20 bg-amber-50 p-5 text-amber-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
             <h3 className="font-bold flex items-center gap-2">⚠️ คุณยังไม่มีกลุ่มโครงงาน</h3>
-            <p className="mt-1 text-xs text-amber-300/80">
+            <p className="mt-1 text-xs text-amber-700/80">
               กรุณาไปที่หน้าจัดตั้งกลุ่มเพื่อเสนอชื่อโครงงานและเลือกสมาชิกในกลุ่ม
             </p>
             <button
               onClick={() => router.push('/newstudent')}
-              className="mt-3 rounded-xl border border-amber-400/40 bg-amber-400/20 px-4 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-400/30"
+              className="mt-3 rounded-xl border border-amber-600/30 bg-amber-100 px-4 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-200"
             >
               👉 ไปหน้าสร้างกลุ่มโครงงาน
             </button>
@@ -328,116 +341,116 @@ export default function StudentPage() {
         )}
 
         {student.status === 'pending' && (
-          <div className="rounded-2xl border border-sky-500/40 bg-sky-500/10 p-5 text-sky-200 backdrop-blur-xl">
+          <div className="rounded-2xl border border-sky-600/20 bg-sky-50 p-5 text-sky-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
             <h3 className="font-bold flex items-center gap-2">⏳ โครงงานอยู่ระหว่างรออาจารย์ตรวจสอบ</h3>
-            <p className="mt-1 text-xs text-sky-300/80">
+            <p className="mt-1 text-xs text-sky-700/80">
               คุณสามารถส่งรายงานความคืบหน้าเพิ่มเติม หรือแก้ไขข้อมูลได้
             </p>
           </div>
         )}
 
         {student.status === 'waiting_review' && (
-          <div className="rounded-2xl border border-cyan-500/40 bg-cyan-500/10 p-5 text-cyan-200 backdrop-blur-xl">
+          <div className="rounded-2xl border border-[#0B1F3A]/15 bg-[#0B1F3A]/[0.04] p-5 text-[#0B1F3A] shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
             <h3 className="font-bold flex items-center gap-2">🔍 งานล่าสุดของคุณอยู่ระหว่างรออาจารย์ตรวจ</h3>
-            <p className="mt-1 text-xs text-cyan-300/80">
+            <p className="mt-1 text-xs text-[#0B1F3A]/70">
               คุณยังส่งรายงานความคืบหน้ารอบถัดไปได้ตามปกติ
             </p>
           </div>
         )}
 
         {student.status === 'checked' && !isProjectCompleted && (
-          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-emerald-200 backdrop-blur-xl">
+          <div className="rounded-2xl border border-emerald-600/20 bg-emerald-50 p-5 text-emerald-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
             <h3 className="font-bold flex items-center gap-2">✅ อาจารย์ตรวจงานรอบล่าสุดแล้ว</h3>
-            <p className="mt-1 text-xs text-emerald-300/80">
+            <p className="mt-1 text-xs text-emerald-700/80">
               คุณสามารถส่งรายงานความคืบหน้ารอบถัดไปได้เลย
             </p>
           </div>
         )}
 
         {isProjectCompleted && (
-          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 text-emerald-200 backdrop-blur-xl">
+          <div className="rounded-2xl border border-emerald-600/20 bg-emerald-50 p-5 text-emerald-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
             <h3 className="font-bold flex items-center gap-2">🎉 โครงงานเสร็จสมบูรณ์แล้ว</h3>
-            <p className="mt-1 text-xs text-emerald-300/80">
+            <p className="mt-1 text-xs text-emerald-700/80">
               งาน 100% ได้รับการตรวจเรียบร้อยแล้ว ฟอร์มส่งงานถูกปิดการใช้งาน
             </p>
           </div>
         )}
 
         {student.status === 'rejected' && (
-          <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-5 text-rose-200 backdrop-blur-xl">
+          <div className="rounded-2xl border border-rose-600/20 bg-rose-50 p-5 text-rose-800 shadow-[0_1px_2px_rgba(11,31,58,0.04)]">
             <h3 className="font-bold flex items-center gap-2">❌ โครงงานต้องแก้ไข</h3>
             {student.comment && (
-              <div className="mt-2 rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-xs text-rose-300 font-mono">
+              <div className="mt-2 rounded-xl border border-rose-600/20 bg-rose-100/60 p-3 text-xs text-rose-800">
                 💬 ข้อเสนอแนะจากอาจารย์: "{student.comment}"
               </div>
             )}
-            <p className="mt-2 text-xs text-rose-300/80">
+            <p className="mt-2 text-xs text-rose-700/80">
               ฟอร์มส่งงานเปิดให้คุณแก้ไขและส่งงานใหม่ได้แล้วด้านล่างนี้
             </p>
           </div>
         )}
 
         {/* Student Info */}
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl">
-          <h2 className="mb-4 text-lg font-semibold text-cyan-300 font-mono border-b border-slate-800 pb-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)]">
+          <h2 className="mb-4 text-lg font-semibold text-[#0B1F3A] border-b border-slate-200 pb-2">
             📌 ข้อมูลนักศึกษา
           </h2>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs font-mono text-slate-400">ชื่อ - นามสกุล</p>
-              <p className="mt-1 font-medium text-slate-100">{student.name}</p>
+              <p className="text-xs text-slate-500">ชื่อ - นามสกุล</p>
+              <p className="mt-1 font-medium text-[#0B1F3A]">{student.name}</p>
             </div>
 
             <div>
-              <p className="text-xs font-mono text-slate-400">รหัสนักศึกษา</p>
-              <p className="mt-1 font-mono font-medium text-cyan-400">
+              <p className="text-xs text-slate-500">รหัสนักศึกษา</p>
+              <p className="mt-1 font-medium text-[#0B1F3A]">
                 {student.student_code}
               </p>
             </div>
 
             <div>
-              <p className="text-xs font-mono text-slate-400">กลุ่มโครงงาน</p>
-              <p className="mt-1 font-medium text-slate-300">{student.group_name}</p>
+              <p className="text-xs text-slate-500">กลุ่มโครงงาน</p>
+              <p className="mt-1 font-medium text-slate-700">{student.group_name}</p>
             </div>
 
             <div>
-              <p className="text-xs font-mono text-slate-400">ชื่อโครงงาน</p>
-              <p className="mt-1 font-medium text-slate-300">{student.project}</p>
+              <p className="text-xs text-slate-500">ชื่อโครงงาน</p>
+              <p className="mt-1 font-medium text-slate-700">{student.project}</p>
             </div>
           </div>
         </div>
 
         {/* Current Progress */}
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl">
-          <h2 className="mb-4 text-lg font-semibold text-cyan-300 font-mono border-b border-slate-800 pb-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)]">
+          <h2 className="mb-4 text-lg font-semibold text-[#0B1F3A] border-b border-slate-200 pb-2">
             📊 ความคืบหน้าปัจจุบัน
           </h2>
 
           <div className="space-y-4">
             <div>
-              <div className="mb-2 flex justify-between text-sm font-mono">
-                <span className="text-slate-400">เปอร์เซ็นต์งานเสร็จสิ้น</span>
-                <span className="font-bold text-cyan-300">{student.progress}%</span>
+              <div className="mb-2 flex justify-between text-sm">
+                <span className="text-slate-500">เปอร์เซ็นต์งานเสร็จสิ้น</span>
+                <span className="font-bold text-[#0B1F3A]">{student.progress}%</span>
               </div>
 
-              <div className="h-3 overflow-hidden rounded-full bg-slate-950 border border-slate-800">
+              <div className="h-3 overflow-hidden rounded-full bg-slate-100 border border-slate-200">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-sky-400 transition-all duration-500 shadow-[0_0_12px_rgba(34,211,238,0.5)]"
+                  className="h-full rounded-full bg-[#0B1F3A] transition-all duration-500"
                   style={{ width: `${student.progress}%` }}
                 />
               </div>
             </div>
 
             <div className="flex items-center gap-2 pt-1">
-              <span className="text-xs font-mono text-slate-400">สถานะอนุมัติ:</span>
+              <span className="text-xs text-slate-500">สถานะอนุมัติ:</span>
               <span
                 className={`rounded-full border px-3 py-0.5 text-xs font-semibold ${
                   student.status === 'checked'
-                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                    ? 'border-emerald-600/20 bg-emerald-50 text-emerald-700'
                     : student.status === 'rejected'
-                    ? 'border-rose-400/30 bg-rose-400/10 text-rose-300'
-                    : 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                    ? 'border-rose-600/20 bg-rose-50 text-rose-700'
+                    : 'border-amber-600/20 bg-amber-50 text-amber-700'
                 }`}
               >
                 {student.displayStatus}
@@ -449,23 +462,23 @@ export default function StudentPage() {
         {/* Submit Form */}
         <form
           onSubmit={handleSubmit}
-          className={`space-y-5 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-6 backdrop-blur-xl transition ${
+          className={`space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)] transition ${
             !canSubmit ? 'opacity-50 pointer-events-none' : ''
           }`}
         >
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <h2 className="text-lg font-semibold text-cyan-300 font-mono">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+            <h2 className="text-lg font-semibold text-[#0B1F3A]">
               🚀 ส่งความคืบหน้าใหม่
             </h2>
             {!canSubmit && (
-              <span className="text-xs text-rose-400 font-mono">
+              <span className="text-xs text-rose-600 font-medium">
                 🔒 ฟอร์มถูกล็อก
               </span>
             )}
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-mono text-slate-400">
+            <label className="mb-2 block text-xs text-slate-500">
               เลือกเปอร์เซ็นต์ความคืบหน้า
             </label>
 
@@ -482,20 +495,20 @@ export default function StudentPage() {
                     disabled={!canSubmit}
                     onClick={() => setProgress(p)}
                     title={milestone?.name || ''}
-                    className={`relative rounded-xl border py-3 font-mono font-semibold transition ${
+                    className={`relative rounded-xl border py-3 font-semibold transition ${
                       progress === p
-                        ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_15px_-3px_rgba(34,211,238,0.4)]'
-                        : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                        ? 'border-[#0B1F3A]/25 bg-[#0B1F3A]/[0.06] text-[#0B1F3A]'
+                        : 'border-slate-200 bg-white text-slate-500 hover:text-[#0B1F3A]'
                     }`}
                   >
                     {p}%
                     {isSubmitted && (
-                      <span className="absolute -top-2 -right-2 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300">
+                      <span className="absolute -top-2 -right-2 rounded-full border border-emerald-600/30 bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700">
                         ✔ ส่งแล้ว
                       </span>
                     )}
                     {!isSubmitted && isOverdue && (
-                      <span className="absolute -top-2 -right-2 rounded-full border border-rose-400/40 bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-rose-300">
+                      <span className="absolute -top-2 -right-2 rounded-full border border-rose-600/30 bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-700">
                         🚨 เลยกำหนด
                       </span>
                     )}
@@ -505,10 +518,10 @@ export default function StudentPage() {
             </div>
 
             {getMilestone(progress) && (
-              <p className="mt-2 text-xs font-mono text-slate-400">
+              <p className="mt-2 text-xs text-slate-500">
                 📌 {getMilestone(progress)?.name}
                 {getMilestone(progress)?.due_date && (
-                  <span className="ml-2 text-slate-500">
+                  <span className="ml-2 text-slate-400">
                     (กำหนดส่ง: {getMilestone(progress)?.due_date})
                   </span>
                 )}
@@ -516,7 +529,7 @@ export default function StudentPage() {
             )}
 
             {submittedLevels.includes(Number(progress)) && (
-              <p className="mt-2 text-xs font-mono text-emerald-400">
+              <p className="mt-2 text-xs text-emerald-700">
                 ✔ งาน {progress}% นี้กลุ่มของคุณส่งไปแล้ว — ถ้าส่งอีกครั้งจะเป็นการอัปเดตข้อมูลเดิม
               </p>
             )}
@@ -524,34 +537,34 @@ export default function StudentPage() {
 
           {/* ประวัติการส่งงานของกลุ่ม */}
           {(historyLoading || reportHistory.length > 0) && (
-            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-              <p className="mb-2 text-xs font-mono uppercase tracking-wider text-slate-500">
+            <div className="rounded-xl border border-slate-200 bg-[#F7F8FB] p-4">
+              <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
                 📜 ประวัติงานที่กลุ่มนี้ส่งไปแล้ว
               </p>
               {historyLoading ? (
-                <p className="text-xs text-slate-500 font-mono">กำลังโหลด...</p>
+                <p className="text-xs text-slate-400">กำลังโหลด...</p>
               ) : (
                 <ul className="space-y-2">
                   {reportHistory.map((r, i) => (
                     <li
                       key={r.id ?? i}
-                      className="flex items-start justify-between gap-3 rounded-lg border border-slate-800/60 bg-slate-900/40 px-3 py-2 text-xs"
+                      className="flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs"
                     >
                       <div className="min-w-0">
-                        <span className="font-mono font-semibold text-cyan-300">
+                        <span className="font-semibold text-[#0B1F3A]">
                           {r.progress}%
                         </span>
                         {r.description && (
-                          <p className="mt-0.5 truncate text-slate-400">{r.description}</p>
+                          <p className="mt-0.5 truncate text-slate-500">{r.description}</p>
                         )}
                         {r.teacher_comment && (
-                          <p className="mt-1 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-1 text-[11px] text-amber-300">
+                          <p className="mt-1 rounded-md border border-amber-600/20 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
                             💬 อาจารย์: {r.teacher_comment}
                           </p>
                         )}
                       </div>
                       {r.created_at && (
-                        <span className="shrink-0 font-mono text-[10px] text-slate-500">
+                        <span className="shrink-0 text-[10px] text-slate-400">
                           {new Date(r.created_at).toLocaleDateString('th-TH')}
                         </span>
                       )}
@@ -563,7 +576,7 @@ export default function StudentPage() {
           )}
 
           <div>
-            <label className="mb-2 block text-xs font-mono text-slate-400">
+            <label className="mb-2 block text-xs text-slate-500">
               รายละเอียดงานที่ทำเสร็จ
             </label>
 
@@ -574,24 +587,24 @@ export default function StudentPage() {
               rows={4}
               required
               placeholder="อธิบายหัวข้อ หรืองานที่ทำเสร็จแล้วในรอบนี้..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] p-4 text-sm text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none"
             />
           </div>
 
           {/* 📁 ช่องแนบไฟล์เอกสารเพิ่มเติม */}
           <div>
-            <label className="mb-2 block text-xs font-mono text-slate-400">
+            <label className="mb-2 block text-xs text-slate-500">
               📎 แนบไฟล์เอกสาร/รายงาน (PDF, DOCX, ZIP หรือรูปภาพ - สูงสุด 10MB)
             </label>
-            <input 
+            <input
               type="file"
               ref={fileInputRef}
               disabled={!canSubmit}
               onChange={handleFileChange}
-              className="w-full text-xs text-slate-400 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-500/10 file:px-4 file:py-2.5 file:text-xs file:font-semibold file:text-cyan-300 hover:file:bg-cyan-500/20 cursor-pointer rounded-xl border border-slate-800 bg-slate-950/60 p-2"
+              className="w-full text-xs text-slate-500 file:mr-4 file:rounded-xl file:border-0 file:bg-[#0B1F3A]/[0.06] file:px-4 file:py-2.5 file:text-xs file:font-semibold file:text-[#0B1F3A] hover:file:bg-[#0B1F3A]/[0.1] cursor-pointer rounded-xl border border-slate-200 bg-[#F7F8FB] p-2"
             />
             {file && (
-              <p className="mt-2 text-xs text-emerald-400 font-mono">
+              <p className="mt-2 text-xs text-emerald-700">
                 ✓ ไฟล์ที่เลือก: {file.name} ({(file.size / (1024 * 1024)).toFixed(2)} MB)
               </p>
             )}
@@ -600,7 +613,7 @@ export default function StudentPage() {
           <button
             type="submit"
             disabled={submitting || !canSubmit}
-            className="w-full rounded-xl border border-cyan-400/30 bg-cyan-400/10 py-3.5 font-semibold text-cyan-300 shadow-[0_0_20px_-6px_rgba(34,211,238,0.5)] transition hover:bg-cyan-400/20 disabled:opacity-50"
+            className="w-full rounded-xl bg-[#0B1F3A] py-3.5 font-semibold text-white transition hover:bg-[#132A4C] disabled:opacity-50"
           >
             {submitting ? 'กำลังส่งข้อมูล...' : '✨ ยืนยันการส่งความคืบหน้า'}
           </button>

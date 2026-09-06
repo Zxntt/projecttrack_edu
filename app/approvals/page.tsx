@@ -8,7 +8,6 @@ interface Member {
   fullname: string
 }
 
-// 🟢 การส่งงานหนึ่งรอบ (จากตาราง progress_reports)
 interface ProgressReport {
   id: number
   progress: number
@@ -16,6 +15,13 @@ interface ProgressReport {
   file_path?: string | null
   teacher_comment?: string | null
   created_at?: string
+}
+
+interface Milestone {
+  id: number
+  name: string
+  percent: number
+  due_date?: string
 }
 
 interface Group {
@@ -31,27 +37,27 @@ interface Group {
   reports: ProgressReport[]
 }
 
+type FilterType = 'pending' | 'waiting_review' | 'in_progress' | 'rejected' | 'all'
+
 export default function TeacherApprovalsPage() {
   const router = useRouter()
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
-  
-  // 🟢 เพิ่ม 'rejected' เข้าไปใน Type เพื่อให้รองรับสถานะถูกปฏิเสธ
-  const [filter, setFilter] = useState<'pending' | 'waiting_review' | 'in_progress' | 'rejected' | 'all'>('pending')
+  const [filter, setFilter] = useState<FilterType>('pending')
 
-  // State สำหรับ Modal ปฏิเสธ/ให้แก้ไข
+  // State for Rejection Modal
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null)
   const [commentText, setCommentText] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
 
-  // 🟢 State สำหรับกล่องคอมเมนต์ต่อรายการส่งงาน (key = report.id)
+  // State for individual report comments
   const [reportComments, setReportComments] = useState<Record<number, string>>({})
   const [savingReportId, setSavingReportId] = useState<number | null>(null)
   const [expandedGroupId, setExpandedGroupId] = useState<number | null>(null)
 
-  // 🟢 ไมล์สโตน (เฟสโครงงาน) — ใช้เช็คว่ากลุ่มไหนเลยกำหนดส่งแล้วบ้าง
-  const [milestones, setMilestones] = useState<any[]>([])
+  // Milestones tracking
+  const [milestones, setMilestones] = useState<Milestone[]>([])
 
   useEffect(() => {
     const fetchMilestones = async () => {
@@ -70,7 +76,7 @@ export default function TeacherApprovalsPage() {
   const getOverdueMilestone = (groupProgress: number) =>
     milestones.find((m) => m.due_date && m.due_date < today && Number(m.percent) > groupProgress)
 
-  // ดึงรายการกลุ่มตาม Status
+  // Fetch groups based on current status filter
   const fetchApprovals = async () => {
     setLoading(true)
     try {
@@ -92,7 +98,7 @@ export default function TeacherApprovalsPage() {
       }
     } catch (error: any) {
       console.error('Fetch approvals error:', error)
-      alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message)
+      alert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + (error?.message || ''))
     } finally {
       setLoading(false)
     }
@@ -105,18 +111,23 @@ export default function TeacherApprovalsPage() {
       return
     }
 
-    const user = JSON.parse(userStr)
-    const role = String(user.role || '').trim().toLowerCase()
-    if (role !== 'teacher') {
-      alert('หน้านี้สำหรับอาจารย์เท่านั้น')
-      router.push('/student')
+    try {
+      const user = JSON.parse(userStr)
+      const role = String(user.role || '').trim().toLowerCase()
+      if (role !== 'teacher') {
+        alert('หน้านี้สำหรับอาจารย์เท่านั้น')
+        router.push('/student')
+        return
+      }
+    } catch {
+      router.push('/login')
       return
     }
 
     fetchApprovals()
   }, [filter, router])
 
-  // 🟢 บันทึกคอมเมนต์สำหรับการส่งงานรอบใดรอบหนึ่งโดยเฉพาะ
+  // Save feedback for a specific progress report submission
   const saveReportComment = async (reportId: number) => {
     const teacherComment = (reportComments[reportId] ?? '').trim()
     setSavingReportId(reportId)
@@ -137,6 +148,7 @@ export default function TeacherApprovalsPage() {
             ),
           }))
         )
+        alert('บันทึกความเห็นรอบส่งงานเรียบร้อย')
       } else {
         alert(data.error || 'บันทึกความเห็นไม่สำเร็จ')
       }
@@ -148,7 +160,7 @@ export default function TeacherApprovalsPage() {
     }
   }
 
-  // 🟢 ฟังก์ชันกดเปลี่ยนสถานะฝั่งซ้าย (รอตรวจ -> ตรวจแล้ว) แก้ไขให้ส่งสถานะเป็น 'checked' ตรงกับ API
+  // Approve / Mark as checked
   const handleApprove = async (groupId: number) => {
     setLoading(true)
     try {
@@ -157,7 +169,7 @@ export default function TeacherApprovalsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           groupId,
-          status: 'checked', 
+          status: 'checked',
           comment: 'ตรวจงานเรียบร้อยแล้ว',
         }),
       })
@@ -177,7 +189,6 @@ export default function TeacherApprovalsPage() {
     }
   }
 
-  // ฟังก์ชันกด "ปฏิเสธ / ให้แก้ไข"
   const handleOpenRejectModal = (groupId: number) => {
     setSelectedGroupId(groupId)
     setCommentText('')
@@ -220,22 +231,15 @@ export default function TeacherApprovalsPage() {
   }
 
   return (
-    <main
-      className="min-h-screen bg-[#05070d] p-6 text-slate-200"
-      style={{
-        backgroundImage:
-          'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.15) 1px, transparent 0)',
-        backgroundSize: '28px 28px',
-      }}
-    >
+    <main className="min-h-screen bg-gray-50 p-6 text-gray-800">
       <div className="mx-auto max-w-6xl space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="bg-gradient-to-r from-amber-300 via-orange-300 to-yellow-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
               🛡️ ศูนย์อนุมัติโครงงาน (อาจารย์)
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-gray-500">
               ตรวจสอบ ตรวจทาน และอนุมัติหัวข้อโครงงานนักศึกษา
             </p>
           </div>
@@ -243,7 +247,7 @@ export default function TeacherApprovalsPage() {
           <div className="flex gap-2">
             <button
               onClick={() => router.push('/')}
-              className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-400/20"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 shadow-sm"
             >
               ← กลับหน้าหลัก
             </button>
@@ -253,15 +257,15 @@ export default function TeacherApprovalsPage() {
                 localStorage.removeItem('user')
                 router.push('/login')
               }}
-              className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-medium text-red-600 transition hover:bg-red-100"
             >
               🚪 ออกจากระบบ
             </button>
           </div>
         </div>
 
-        {/* 🟢 Filter Tabs */}
-        <div className="flex gap-2 border-b border-slate-800 pb-3 overflow-x-auto">
+        {/* Filter Tabs */}
+        <div className="flex gap-2 overflow-x-auto border-b border-gray-200 pb-3">
           {[
             { id: 'pending', label: '⏳ รออนุมัติงาน/โครงงาน' },
             { id: 'in_progress', label: '✅ ตรวจแล้ว' },
@@ -270,11 +274,11 @@ export default function TeacherApprovalsPage() {
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setFilter(tab.id as any)}
-              className={`rounded-xl px-4 py-2 text-xs font-mono font-medium transition whitespace-nowrap ${
+              onClick={() => setFilter(tab.id as FilterType)}
+              className={`rounded-lg px-4 py-2 text-xs font-medium transition whitespace-nowrap shadow-sm ${
                 filter === tab.id
-                  ? 'border border-amber-400/40 bg-amber-400/20 text-amber-300'
-                  : 'border border-slate-800 bg-slate-900/40 text-slate-400 hover:text-slate-200'
+                  ? 'bg-sky-600 text-white'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
             >
               {tab.label}
@@ -284,95 +288,94 @@ export default function TeacherApprovalsPage() {
 
         {/* Content Section */}
         {loading ? (
-          <div className="flex h-64 items-center justify-center font-mono text-sm text-amber-400/70">
-            LOADING APPROVALS · กำลังโหลดรายการ...
+          <div className="flex h-64 items-center justify-center text-sm text-gray-500">
+            กำลังโหลดรายการ...
           </div>
         ) : groups.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-12 text-center backdrop-blur-xl">
-            <p className="font-mono text-slate-500">ไม่พบรายการโครงงานในหมวดหมู่นี้</p>
+          <div className="rounded-xl border border-gray-200 bg-white p-12 text-center shadow-sm">
+            <p className="text-gray-500">ไม่พบรายการโครงงานในหมวดหมู่นี้</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {groups.map((group) => {
               const isChecked = group.status === 'checked' || group.status === 'in_progress'
+              const overdue = getOverdueMilestone(group.progress)
 
               return (
                 <div
                   key={group.id}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl transition hover:border-slate-700"
+                  className="flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md"
                 >
                   <div>
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-bold text-slate-100">
-                        {group.groupName}
-                      </h3>
+                      <h3 className="text-lg font-bold text-gray-900">{group.groupName}</h3>
                       <div className="flex items-center gap-2">
                         {group.status === 'rejected' && (
-                          <span className="rounded-full border border-rose-500/30 bg-rose-500/20 px-3 py-0.5 text-xs font-mono text-rose-300">
+                          <span className="rounded-full bg-red-100 px-3 py-0.5 text-xs text-red-600 font-medium">
                             ถูกปฏิเสธ
                           </span>
                         )}
-                        <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-0.5 text-xs font-mono text-cyan-300">
+                        <span className="rounded-full bg-blue-50 px-3 py-0.5 text-xs text-blue-600 font-medium">
                           {group.className}
                         </span>
                       </div>
                     </div>
 
-                    {getOverdueMilestone(group.progress) && (
-                      <div className="mt-2 inline-block rounded-full border border-rose-400/30 bg-rose-400/10 px-3 py-0.5 text-[10px] font-mono text-rose-300">
-                        🚨 เลยกำหนดเฟส "{getOverdueMilestone(group.progress)?.name}"
+                    {overdue && (
+                      <div className="mt-2 inline-block rounded-full bg-red-50 px-3 py-0.5 text-[11px] text-red-600 font-medium">
+                        🚨 เลยกำหนดเฟส &quot;{overdue.name}&quot;
                       </div>
                     )}
 
-                    <p className="mt-2 text-sm text-slate-300">
-                      <span className="font-semibold text-amber-300">หัวข้อโครงงาน :</span>{' '}
+                    <p className="mt-2 text-sm text-gray-600">
+                      <span className="font-semibold text-gray-900">หัวข้อโครงงาน :</span>{' '}
                       {group.projectName}
                     </p>
 
-                    {/* รายชื่อสมาชิก */}
-                    <div className="mt-4 rounded-xl border border-slate-800/60 bg-slate-950/40 p-3">
-                      <p className="text-xs font-mono uppercase tracking-wider text-slate-500">
+                    {/* Members List */}
+                    <div className="mt-4 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">
                         สมาชิกผู้จัดทำ ({group.members ? group.members.length : 0} คน)
                       </p>
-                      <ul className="mt-2 space-y-1 text-xs text-slate-300 font-mono">
+                      <ul className="mt-2 space-y-1 text-xs text-gray-700">
                         {group.members && group.members.length > 0 ? (
                           group.members.map((m, i) => (
                             <li key={i} className="flex justify-between">
                               <span>• {m.fullname}</span>
-                              <span className="text-slate-500">{m.studentId}</span>
+                              <span className="text-gray-400">{m.studentId}</span>
                             </li>
                           ))
                         ) : (
-                          <li className="text-slate-600">ไม่มีสมาชิก</li>
+                          <li className="text-gray-400">ไม่มีสมาชิก</li>
                         )}
                       </ul>
                     </div>
 
-                    {/* 📎 แสดงไฟล์แนบ */}
+                    {/* Attachment Link */}
                     {group.fileUrl ? (
                       <div className="mt-3">
                         <a
                           href={group.fileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-cyan-400/30 bg-cyan-500/10 px-3 py-2 text-xs font-mono font-semibold text-cyan-300 transition hover:bg-cyan-500/20"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-600 transition hover:bg-blue-100"
                         >
                           📎 เปิดดู / ดาวน์โหลดไฟล์แนบ
                         </a>
                       </div>
                     ) : (
-                      <div className="mt-3 text-xs text-slate-500 font-mono">
+                      <div className="mt-3 text-xs text-gray-400">
                         📄 ยังไม่มีไฟล์แนบในรอบนี้
                       </div>
                     )}
 
                     {group.comment && (
-                      <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-950/20 p-2.5 text-xs text-rose-300 font-mono">
-                        💬 ข้อเสนอแนะล่าสุด: "{group.comment}"
+                      <div className="mt-3 rounded-lg border border-red-100 bg-red-50 p-2.5 text-xs text-red-600">
+                        💬 ข้อเสนอแนะล่าสุด: &quot;{group.comment}&quot;
                       </div>
                     )}
 
-                    {/* 🟢 ประวัติการส่งงานทีละรอบ */}
+                    {/* History Reports Accordion */}
                     {group.reports && group.reports.length > 0 && (
                       <div className="mt-3">
                         <button
@@ -380,7 +383,7 @@ export default function TeacherApprovalsPage() {
                           onClick={() =>
                             setExpandedGroupId(expandedGroupId === group.id ? null : group.id)
                           }
-                          className="w-full rounded-xl border border-slate-800/60 bg-slate-950/40 px-3 py-2 text-left text-xs font-mono text-slate-400 hover:text-slate-200"
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left text-xs text-gray-600 hover:bg-gray-100"
                         >
                           📜 ประวัติการส่งงาน ({group.reports.length} รอบ){' '}
                           {expandedGroupId === group.id ? '▲' : '▼'}
@@ -391,21 +394,21 @@ export default function TeacherApprovalsPage() {
                             {group.reports.map((r) => (
                               <div
                                 key={r.id}
-                                className="rounded-xl border border-slate-800/60 bg-slate-950/30 p-3"
+                                className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
                               >
                                 <div className="flex items-center justify-between">
-                                  <span className="font-mono text-xs font-semibold text-cyan-300">
+                                  <span className="text-xs font-semibold text-blue-600">
                                     {r.progress}%
                                   </span>
                                   {r.created_at && (
-                                    <span className="font-mono text-[10px] text-slate-500">
+                                    <span className="text-[10px] text-gray-400">
                                       {new Date(r.created_at).toLocaleString('th-TH')}
                                     </span>
                                   )}
                                 </div>
 
                                 {r.description && (
-                                  <p className="mt-1 text-xs text-slate-300">{r.description}</p>
+                                  <p className="mt-1 text-xs text-gray-600">{r.description}</p>
                                 )}
 
                                 {r.file_path && (
@@ -413,7 +416,7 @@ export default function TeacherApprovalsPage() {
                                     href={r.file_path}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="mt-1 inline-block text-[10px] font-mono text-cyan-400 underline underline-offset-2"
+                                    className="mt-1 inline-block text-[10px] text-blue-600 underline underline-offset-2"
                                   >
                                     📎 ดูไฟล์แนบของรอบนี้
                                   </a>
@@ -429,14 +432,14 @@ export default function TeacherApprovalsPage() {
                                   }
                                   rows={2}
                                   placeholder="เขียนความเห็น/ข้อเสนอแนะสำหรับงานรอบนี้..."
-                                  className="mt-2 w-full rounded-lg border border-slate-800 bg-slate-900 p-2 text-xs text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
+                                  className="mt-2 w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
                                 />
 
                                 <button
                                   type="button"
                                   onClick={() => saveReportComment(r.id)}
                                   disabled={savingReportId === r.id}
-                                  className="mt-2 rounded-lg border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-[10px] font-semibold text-cyan-300 hover:bg-cyan-400/20 disabled:opacity-50"
+                                  className="mt-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-1 text-[10px] font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                                 >
                                   {savingReportId === r.id ? 'กำลังบันทึก...' : '💾 บันทึกความเห็น'}
                                 </button>
@@ -449,14 +452,14 @@ export default function TeacherApprovalsPage() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-5 flex gap-3 border-t border-slate-800/60 pt-4">
+                  <div className="mt-5 flex gap-3 border-t border-gray-100 pt-4">
                     <button
                       onClick={() => handleApprove(group.id)}
                       disabled={actionLoading || isChecked}
-                      className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition ${
+                      className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
                         isChecked
-                          ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300 disabled:opacity-80'
-                          : 'border-amber-400/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                          ? 'border border-green-200 bg-green-50 text-green-700 disabled:opacity-80'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
                       }`}
                     >
                       {isChecked ? '✅ ตรวจแล้ว' : '🔍 รอตรวจ'}
@@ -465,7 +468,7 @@ export default function TeacherApprovalsPage() {
                     <button
                       onClick={() => handleOpenRejectModal(group.id)}
                       disabled={actionLoading}
-                      className="flex-1 rounded-xl border border-rose-400/30 bg-rose-500/10 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40"
+                      className="flex-1 rounded-lg border border-red-200 bg-red-50 py-2 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-40"
                     >
                       ❌ ปฏิเสธ / ให้แก้ไข
                     </button>
@@ -479,12 +482,10 @@ export default function TeacherApprovalsPage() {
 
       {/* Reject Modal */}
       {rejectModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-[#0b0f19] p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-slate-100">
-              ❌ ปฏิเสธ / ให้แก้ไขโครงงาน
-            </h3>
-            <p className="text-xs text-slate-400">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg space-y-4 rounded-xl border border-gray-200 bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900">❌ ปฏิเสธ / ให้แก้ไขโครงงาน</h3>
+            <p className="text-xs text-gray-500">
               โปรดระบุข้อเสนอแนะเพื่อให้กลุ่มนักเรียนนำกลับไปแก้ไข
             </p>
 
@@ -493,20 +494,20 @@ export default function TeacherApprovalsPage() {
               onChange={(e) => setCommentText(e.target.value)}
               rows={4}
               placeholder="เช่น หัวข้อโครงงานกว้างเกินไป ควรปรับระบุขอบเขตให้ชัดเจนขึ้น..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 p-3 text-sm text-slate-200 focus:border-rose-400 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-800 focus:border-red-500 focus:outline-none"
             />
 
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setRejectModalOpen(false)}
-                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs text-slate-300 hover:bg-slate-700"
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs text-gray-700 hover:bg-gray-50"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={handleConfirmReject}
                 disabled={actionLoading}
-                className="rounded-xl border border-rose-500/30 bg-rose-500/20 px-4 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/30 disabled:opacity-50"
+                className="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
                 ยืนยันการส่งข้อเสนอแนะ
               </button>

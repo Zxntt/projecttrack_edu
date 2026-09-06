@@ -62,20 +62,33 @@ export default function RegisterPage() {
 
   return (
     <main
-      className="flex min-h-screen items-center justify-center bg-[#05070d] p-6 text-slate-200"
+      className="flex min-h-screen items-center justify-center bg-[#DAEBF7] p-6 text-[#1B2431]"
       style={{
+        fontFamily: "'Noto Sans Thai', 'IBM Plex Sans Thai', system-ui, sans-serif",
         backgroundImage:
-          'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.15) 1px, transparent 0)',
+          'radial-gradient(circle at 1px 1px, #0b1f3a12 1px, transparent 0)',
         backgroundSize: '28px 28px',
       }}
     >
-      <div className="w-full max-w-lg rounded-2xl border border-slate-800/80 bg-slate-900/50 p-8 shadow-2xl backdrop-blur-xl">
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap');
+        .font-display {
+          font-family: 'Noto Serif Thai', serif;
+        }
+      `}</style>
+
+      <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-8 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)]">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
-            📝 สมัครสมาชิกเข้าใช้งาน
+        <div className="mb-8 text-center flex flex-col items-center">
+          <img 
+            src="/pic/1.png" 
+            alt="ProjectTrack EDU Logo" 
+            className="mb-4 h-20 w-20 object-contain" 
+          />
+          <h1 className="font-display text-3xl font-bold tracking-tight text-[#0B1F3A]">
+            ProjectTrack EDU
           </h1>
-          <p className="mt-2 text-sm text-slate-400">
+          <p className="mt-2 text-sm text-slate-500">
             กรอกข้อมูลเพื่อสร้างบัญชีสำหรับนักศึกษาและอาจารย์
           </p>
         </div>
@@ -84,13 +97,13 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* สถานะผู้ใช้งาน (เลือกก่อน) */}
           <div>
-            <label className="mb-1 block text-xs font-mono text-slate-400">
-              สถานะผู้ใช้งาน <span className="text-rose-400">*</span>
+            <label className="mb-2 block text-xs text-slate-500">
+              สถานะผู้ใช้งาน <span className="text-rose-500">*</span>
             </label>
             <select
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value })}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] px-4 py-3 text-[#0B1F3A] focus:border-[#0B1F3A]/40 focus:outline-none"
             >
               <option value="student">👨‍🎓 นักเรียน / นักศึกษา (Student)</option>
             </select>
@@ -99,65 +112,65 @@ export default function RegisterPage() {
           {/* แสดงช่องรหัสนักศึกษาเฉพาะบทบาท student */}
           {form.role === 'student' && (
             <div>
-              <label className="mb-1 block text-xs font-mono text-slate-400">
-                รหัสนักศึกษา <span className="text-rose-400">*</span>
+              <label className="mb-2 block text-xs text-slate-500">
+                รหัสนักศึกษา <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 placeholder="เช่น 68319010015"
                 value={form.student_code}
                 onChange={(e) => setForm({ ...form, student_code: e.target.value })}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none font-mono"
+                className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] px-4 py-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none"
                 required={form.role === 'student'}
               />
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-mono text-slate-400">
-              ชื่อ - นามสกุล <span className="text-rose-400">*</span>
+            <label className="mb-2 block text-xs text-slate-500">
+              ชื่อ - นามสกุล <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
               placeholder="เช่น นายธนกฤต กุณะแสงคำ"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] px-4 py-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none"
               required
             />
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-mono text-slate-400">
-              อีเมล <span className="text-rose-400">*</span>
+            <label className="mb-2 block text-xs text-slate-500">
+              อีเมล <span className="text-rose-500">*</span>
             </label>
             <input
               type="email"
               placeholder={form.role === 'student' ? 'student@cmtc.ac.th' : 'teacher@cmtc.ac.th'}
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] px-4 py-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none"
               required
             />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block text-xs font-mono text-slate-400">
-                รหัสผ่าน <span className="text-rose-400">*</span>
+              <label className="mb-2 block text-xs text-slate-500">
+                รหัสผ่าน <span className="text-rose-500">*</span>
               </label>
               <input
                 type="password"
                 placeholder="••••••••"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] px-4 py-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none"
                 required
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-mono text-slate-400">
-                ยืนยันรหัสผ่าน <span className="text-rose-400">*</span>
+              <label className="mb-2 block text-xs text-slate-500">
+                ยืนยันรหัสผ่าน <span className="text-rose-500">*</span>
               </label>
               <input
                 type="password"
@@ -166,7 +179,7 @@ export default function RegisterPage() {
                 onChange={(e) =>
                   setForm({ ...form, confirmPassword: e.target.value })
                 }
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
+                className="w-full rounded-xl border border-slate-200 bg-[#F7F8FB] px-4 py-3 text-[#0B1F3A] placeholder-slate-400 focus:border-[#0B1F3A]/40 focus:outline-none"
                 required
               />
             </div>
@@ -175,16 +188,16 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-4 w-full rounded-xl border border-cyan-400/30 bg-cyan-400/10 py-3.5 font-semibold text-cyan-300 transition hover:bg-cyan-400/20 shadow-[0_0_20px_-6px_rgba(34,211,238,0.5)] disabled:opacity-50"
+            className="mt-4 w-full rounded-xl bg-[#0B1F3A] py-3.5 font-semibold text-white transition hover:bg-[#132A4C] disabled:opacity-50"
           >
-            {loading ? 'กำลังลงทะเบียน...' : '✨ ลงทะเบียนเข้าใช้งาน'}
+            {loading ? 'กำลังลงทะเบียน...' : 'ลงทะเบียนเข้าใช้งาน'}
           </button>
         </form>
 
         {/* Footer Link */}
-        <p className="mt-6 text-center text-sm text-slate-400">
+        <p className="mt-6 text-center text-sm text-slate-500">
           มีบัญชีผู้ใช้งานอยู่แล้ว?{' '}
-          <Link href="/login" className="font-medium text-cyan-400 hover:underline">
+          <Link href="/login" className="font-semibold text-[#0B1F3A] hover:underline">
             เข้าสู่ระบบที่นี่
           </Link>
         </p>

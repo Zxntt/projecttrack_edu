@@ -78,6 +78,7 @@ export default function AdminMilestonesPage() {
         setMilestones((prev) =>
           prev.map((m) => (m.id === id ? { ...m, name: draft.name, due_date: draft.due_date || null } : m))
         )
+        alert('✨ บันทึกเฟสนี้เรียบร้อย!')
       } else {
         alert(data.error || 'บันทึกไม่สำเร็จ')
       }
@@ -91,36 +92,29 @@ export default function AdminMilestonesPage() {
 
   if (checking || loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#05070d] text-cyan-400 font-mono">
-        <p className="animate-pulse">LOADING · กำลังโหลดไมล์สโตน...</p>
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-500 text-sm">
+        <p>กำลังโหลดไมล์สโตน...</p>
       </main>
     )
   }
 
   return (
-    <main
-      className="min-h-screen bg-[#05070d] p-6 text-slate-200"
-      style={{
-        backgroundImage:
-          'radial-gradient(circle at 1px 1px, rgba(246, 247, 248, 0.94) 1px, transparent 0)',
-        backgroundSize: '28px 28px',
-      }}
-    >
+    <main className="min-h-screen bg-gray-50 p-6 text-gray-800">
       <div className="mx-auto max-w-3xl space-y-6">
         {/* ส่วนหัว + ปุ่มกลับหน้าหลัก */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div>
-            <h1 className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
               🧭 จัดการไมล์สโตน / เฟสโครงงาน
             </h1>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-gray-500">
               ตั้งชื่อและกำหนดส่งของแต่ละเฟส (25% / 50% / 75% / 100%) ให้ตรงกับแผนการสอนของคุณ
             </p>
           </div>
           <div>
             <Link
-              href="/" 
-              className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-medium text-cyan-300 hover:bg-cyan-400/20"
+              href="/"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition"
             >
               ← กลับหน้าหลัก
             </Link>
@@ -136,49 +130,55 @@ export default function AdminMilestonesPage() {
             return (
               <div
                 key={m.id}
-                className="rounded-2xl border border-slate-800/80 bg-slate-900/40 p-5 backdrop-blur-xl"
+                className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm space-y-3 transition hover:shadow-md"
               >
-                <div className="mb-3 flex items-center gap-2">
-                  <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-sm font-mono font-bold text-cyan-300">
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-blue-50 px-3 py-0.5 text-xs font-medium text-blue-600">
                     {m.percent}%
                   </span>
                   {isOverdue && (
-                    <span className="rounded-full border border-rose-400/30 bg-rose-400/10 px-2 py-0.5 text-[10px] font-mono text-rose-300">
+                    <span className="rounded-full bg-red-50 px-3 py-0.5 text-[11px] font-medium text-red-600">
                       🚨 เลยกำหนดแล้ว
                     </span>
                   )}
                 </div>
 
-                <label className="mb-1 block text-xs font-mono text-slate-400">ชื่อเฟส</label>
-                <input
-                  type="text"
-                  value={draft.name}
-                  onChange={(e) =>
-                    setDrafts((prev) => ({ ...prev, [m.id]: { ...draft, name: e.target.value } }))
-                  }
-                  placeholder="เช่น เสนอหัวข้อโครงงาน / บทที่ 1-2"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
-                />
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">ชื่อเฟส</label>
+                  <input
+                    type="text"
+                    value={draft.name}
+                    onChange={(e) =>
+                      setDrafts((prev) => ({ ...prev, [m.id]: { ...draft, name: e.target.value } }))
+                    }
+                    placeholder="เช่น เสนอหัวข้อโครงงาน / บทที่ 1-2"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
 
-                <label className="mb-1 mt-3 block text-xs font-mono text-slate-400">
-                  กำหนดส่ง (เว้นว่างได้ถ้ายังไม่กำหนด)
-                </label>
-                <input
-                  type="date"
-                  value={draft.due_date}
-                  onChange={(e) =>
-                    setDrafts((prev) => ({ ...prev, [m.id]: { ...draft, due_date: e.target.value } }))
-                  }
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-2.5 text-sm text-slate-200 focus:border-cyan-400 focus:outline-none"
-                />
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-gray-700">
+                    กำหนดส่ง (เว้นว่างได้ถ้ายังไม่กำหนด)
+                  </label>
+                  <input
+                    type="date"
+                    value={draft.due_date}
+                    onChange={(e) =>
+                      setDrafts((prev) => ({ ...prev, [m.id]: { ...draft, due_date: e.target.value } }))
+                    }
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
 
-                <button
-                  onClick={() => handleSave(m.id)}
-                  disabled={savingId === m.id}
-                  className="mt-3 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-400/20 disabled:opacity-50"
-                >
-                  {savingId === m.id ? 'กำลังบันทึก...' : '💾 บันทึกเฟสนี้'}
-                </button>
+                <div className="pt-1">
+                  <button
+                    onClick={() => handleSave(m.id)}
+                    disabled={savingId === m.id}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition shadow-sm"
+                  >
+                    {savingId === m.id ? 'กำลังบันทึก...' : '💾 บันทึกเฟสนี้'}
+                  </button>
+                </div>
               </div>
             )
           })}
