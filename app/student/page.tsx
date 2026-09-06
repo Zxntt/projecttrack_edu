@@ -298,13 +298,21 @@ export default function StudentPage() {
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_1px_2px_rgba(11,31,58,0.04),0_8px_24px_-12px_rgba(11,31,58,0.08)] sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-[#0B1F3A]">
-              👨‍🎓 Student Dashboard
-            </h1>
-            <p className="mt-1 text-sm text-slate-500">
-              ระบบติดตามและส่งรายงานความคืบหน้าโครงงาน
-            </p>
+          <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-center sm:text-left">
+            {/* 🟢 โลโก้ Information Technology Chiangmai Technical College */}
+            <img
+              src="/pic/2.png"
+              alt="Information Technology Chiangmai Technical College"
+              className="h-15 w-auto object-contain sm:h-18"
+            />
+            <div>
+              <h1 className="font-display text-2xl font-bold tracking-tight text-[#0B1F3A]">
+                Student Dashboard
+              </h1>
+              <p className="mt-1 text-sm text-slate-500">
+                ระบบติดตามและส่งรายงานความคืบหน้าโครงงาน
+              </p>
+            </div>
           </div>
 
           <div className="flex gap-2">
