@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 
@@ -9,6 +9,10 @@ export default function Navbar() {
   const pathname = usePathname()
   const [user, setUser] = useState<any>(null)
   const [isOpen, setIsOpen] = useState(false)
+
+  // 🟢 State สำหรับ User Profile Dropdown (มุมขวาบน)
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // 🟢 ระบบแจ้งเตือน (เฉพาะฝั่งนักเรียน)
   const [notifications, setNotifications] = useState<any[]>([])
@@ -30,6 +34,7 @@ export default function Navbar() {
 
   const handleOpenNotif = () => {
     setNotifOpen((prev) => !prev)
+    setProfileDropdownOpen(false) // ปิดเมนูอื่นถ้าเปิดอยู่
   }
 
   const markNotifRead = async (id: number) => {
@@ -45,6 +50,17 @@ export default function Navbar() {
       console.error('Mark notification read error:', error)
     }
   }
+
+  // ปิด Dropdown เมื่อคลิกนอกพื้นที่
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   useEffect(() => {
     const userStr = localStorage.getItem('user')
@@ -63,15 +79,18 @@ export default function Navbar() {
     }
   }, [pathname])
 
-  // ปิดเมนมือถืออัตโนมัติเมื่อเปลี่ยนหน้า
+  // ปิดเมนูมือถือและ Dropdown อัตโนมัติเมื่อเปลี่ยนหน้า
   useEffect(() => {
     setIsOpen(false)
+    setProfileDropdownOpen(false)
+    setNotifOpen(false)
   }, [pathname])
 
   const handleLogout = () => {
     localStorage.removeItem('user')
     setUser(null)
     setIsOpen(false)
+    setProfileDropdownOpen(false)
     router.push('/login')
   }
 
@@ -85,7 +104,6 @@ export default function Navbar() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 py-3.5">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-2.5">
-          {/* 🚀 เปลี่ยนตรงนี้: แทนที่อีโมจิจรวดด้วยรูปภาพจาก /pic/rocket.png */}
           <img src="/pic/1.png" alt="Rocket Icon" className="h-11 w-11 object-contain inline-block" />
           <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-transparent">
             ProjectTrack
@@ -167,7 +185,7 @@ export default function Navbar() {
               </button>
 
               {notifOpen && (
-                <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-slate-800 bg-[#0b0f19] p-2 shadow-2xl">
+                <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-slate-800 bg-[#0b0f19] p-2 shadow-2xl z-50">
                   {notifications.length === 0 ? (
                     <p className="p-3 text-center text-xs text-slate-500 font-mono">
                       ยังไม่มีการแจ้งเตือน
@@ -197,25 +215,48 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* User Profile & Actions */}
+          {/* 🟢 User Profile & Dropdown มุมขวาบน */}
           {user ? (
-            <div className="flex items-center gap-2 sm:gap-3 border-l border-slate-800 pl-3">
-              <span className="hidden text-xs text-slate-300 sm:inline font-mono">
-                {user.name}
-              </span>
-              <Link
-                href="/change-password"
-                className="rounded-xl border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:bg-slate-700 hover:text-white"
-                title="เปลี่ยนรหัสผ่าน"
-              >
-                🔑 เปลี่ยนรหัส
-              </Link>
+            <div className="relative border-l border-slate-800 pl-3" ref={dropdownRef}>
               <button
-                onClick={handleLogout}
-                className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+                onClick={() => {
+                  setProfileDropdownOpen(!profileDropdownOpen)
+                  setNotifOpen(false)
+                }}
+                className="flex items-center gap-2 rounded-xl border border-slate-700/60 bg-slate-800/40 px-3 py-1.5 text-xs text-slate-200 transition hover:bg-slate-800 hover:border-slate-600 focus:outline-none"
               >
-                🚪 ออกจากระบบ
+                {/* รูปวงกลม Avatar ย่อจากชื่อ */}
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-tr from-cyan-500 to-violet-500 font-bold text-white text-[10px]">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <span className="font-mono max-w-[120px] truncate">{user.name}</span>
+                <svg className={`w-3 h-3 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
+
+              {/* เมนูดรอปดาวน์ */}
+              {profileDropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-800 bg-[#0b0f19] p-1.5 shadow-2xl z-50">
+                  <div className="px-3 py-2 border-b border-slate-800/80 mb-1">
+                    <p className="text-[11px] text-slate-400">เข้าสู่ระบบในชื่อ</p>
+                    <p className="text-xs font-semibold text-cyan-300 truncate">{user.name}</p>
+                  </div>
+                  <Link
+                    href="/change-password"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800/60 hover:text-white"
+                  >
+                    🔑 เปลี่ยนรหัสผ่าน
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-rose-400 transition hover:bg-rose-500/10 hover:text-rose-300 text-left"
+                  >
+                    🚪 ออกจากระบบ
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <Link
@@ -251,8 +292,9 @@ export default function Navbar() {
       {isOpen && (
         <div className="md:hidden border-t border-slate-800 bg-[#05070d]/95 px-4 pt-3 pb-5 space-y-3 backdrop-blur-md">
           {user && (
-            <div className="text-xs text-slate-300 font-mono pb-2 border-b border-slate-800">
-              ผู้ใช้งาน: <span className="text-cyan-300">{user.name}</span>
+            <div className="text-xs text-slate-300 font-mono pb-2 border-b border-slate-800 flex items-center justify-between">
+              <span>ผู้ใช้งาน: <span className="text-cyan-300">{user.name}</span></span>
+              <span className="text-[10px] uppercase bg-slate-800 border border-slate-700 px-2 py-0.5 rounded text-cyan-300">{user.role}</span>
             </div>
           )}
 
@@ -327,7 +369,7 @@ export default function Navbar() {
                 </Link>
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+                  className="w-full text-left rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20 text-center"
                 >
                   🚪 ออกจากระบบ
                 </button>
